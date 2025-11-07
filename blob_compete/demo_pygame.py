@@ -26,6 +26,47 @@ GRAY = (200, 200, 200)
 DARK_GRAY = (100, 100, 100)
 LIGHT_BLUE = (150, 200, 255)
 LIGHT_RED = (255, 150, 150)
+YELLOW = (255, 255, 0)
+ORANGE = (255, 165, 0)
+
+
+class Particle:
+    """A particle for explosion effects"""
+
+    def __init__(self, pos, velocity, color, size, lifetime):
+        self.pos = list(pos)  # [x, y]
+        self.velocity = list(velocity)  # [vx, vy]
+        self.color = color
+        self.initial_size = size
+        self.size = size
+        self.lifetime = lifetime  # seconds
+        self.age = 0.0
+        self.alpha = 255
+
+    def update(self, dt):
+        """Update particle physics"""
+        # Apply gravity
+        self.velocity[1] += 150.0 * dt  # gravity acceleration
+
+        # Update position
+        self.pos[0] += self.velocity[0] * dt
+        self.pos[1] += self.velocity[1] * dt
+
+        # Apply air resistance
+        self.velocity[0] *= 0.98
+        self.velocity[1] *= 0.98
+
+        # Age the particle
+        self.age += dt
+        progress = self.age / self.lifetime
+
+        # Fade out and shrink
+        self.alpha = int(255 * (1.0 - progress))
+        self.size = self.initial_size * (1.0 - progress * 0.5)
+
+    def is_alive(self):
+        """Check if particle is still alive"""
+        return self.age < self.lifetime
 
 
 class LiveBlobRenderer:
@@ -110,6 +151,9 @@ class LiveBlobRenderer:
         # Food rotation animation
         self.food_rotation_speeds = {}  # Store rotation speed for each food position
 
+        # Particle system
+        self.particles = []
+
     def world_to_screen(self, pos):
         """Convert world coordinates to screen coordinates"""
         x = self.game_offset_x + pos[0] * self.scale
@@ -167,6 +211,75 @@ class LiveBlobRenderer:
             self.eat2_sound.play()
         elif self.eat_sound:
             self.eat_sound.play()
+
+    def create_explosion(self, pos, mass, blob_color):
+        """Create explosion particles at the given position"""
+        # Number of particles based on mass
+        num_particles = int(30 + mass * 5)
+        num_particles = min(num_particles, 150)  # Cap at 150 particles
+
+        # Color palette based on blob color
+        if blob_color == 'blue':
+            colors = [BLUE, LIGHT_BLUE, WHITE, (100, 150, 255)]
+        else:
+            colors = [RED, LIGHT_RED, WHITE, (255, 100, 100)]
+
+        # Create particles in all directions
+        for i in range(num_particles):
+            # Random angle
+            angle = random.uniform(0, 2 * math.pi)
+
+            # Random speed (explosion velocity)
+            speed = random.uniform(50, 200)
+            vx = math.cos(angle) * speed
+            vy = math.sin(angle) * speed
+
+            # Random color from palette
+            color = random.choice(colors)
+
+            # Random size
+            size = random.uniform(2, 6)
+
+            # Random lifetime
+            lifetime = random.uniform(0.5, 1.5)
+
+            # Convert world position to screen position for particles
+            screen_pos = self.world_to_screen(pos)
+
+            particle = Particle(screen_pos, (vx, vy), color, size, lifetime)
+            self.particles.append(particle)
+
+    def update_particles(self, dt):
+        """Update all particles and remove dead ones"""
+        # Update all particles
+        for particle in self.particles:
+            particle.update(dt)
+
+        # Remove dead particles
+        self.particles = [p for p in self.particles if p.is_alive()]
+
+    def draw_particles(self):
+        """Draw all active particles"""
+        for particle in self.particles:
+            # Create a surface with per-pixel alpha for transparency
+            size = int(particle.size * 2)
+            if size < 1:
+                continue
+
+            # Draw particle as a circle with alpha blending
+            particle_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+
+            # Draw circle with alpha
+            color_with_alpha = particle.color + (particle.alpha,)
+            pygame.draw.circle(
+                particle_surface,
+                color_with_alpha,
+                (size // 2, size // 2),
+                int(particle.size)
+            )
+
+            # Blit to screen
+            self.screen.blit(particle_surface, (int(particle.pos[0] - size // 2), int(particle.pos[1] - size // 2)))
 
     def draw_blob(self, pos, angle, mass, base_hue, blob_id):
         """Draw a blob using image sprite, scaled by mass, mirrored when facing left"""
@@ -365,8 +478,12 @@ class LiveBlobRenderer:
             surf = self.font_small.render(text, True, GRAY)
             self.screen.blit(surf, (self.game_offset_x, controls_y + i * 25))
 
-    def render_frame(self, env, episode_num, blob1_foods, blob2_foods, blob1_wins, blob2_wins):
+    def render_frame(self, env, episode_num, blob1_foods, blob2_foods, blob1_wins, blob2_wins, dt=0.0):
         """Render current game state"""
+        # Update particles
+        if dt > 0:
+            self.update_particles(dt)
+
         self.screen.fill(BLACK)
 
         # Draw game area border
@@ -385,6 +502,9 @@ class LiveBlobRenderer:
         # Draw blobs
         self.draw_blob(env.blob1_pos, env.blob1_angle, env.blob1_mass, 'blue', blob_id=1)
         self.draw_blob(env.blob2_pos, env.blob2_angle, env.blob2_mass, 'red', blob_id=2)
+
+        # Draw particles (on top of everything)
+        self.draw_particles()
 
         # Draw stats
         self.draw_stats(env, episode_num, blob1_foods, blob2_foods, blob1_wins, blob2_wins)
@@ -467,6 +587,8 @@ def live_demo(fps=30, fullscreen=False, max_foods=10):
     blob2_foods = 0
     blob1_wins = 0
     blob2_wins = 0
+    blob1_alive = True
+    blob2_alive = True
 
     print("\n" + "=" * 60)
     print("BLOB COMPETE - LIVE DEMO")
@@ -479,7 +601,13 @@ def live_demo(fps=30, fullscreen=False, max_foods=10):
     print("\nStarting Episode 1...")
 
     running = True
+    last_time = pygame.time.get_ticks() / 1000.0
     while running:
+        # Calculate delta time
+        current_time = pygame.time.get_ticks() / 1000.0
+        dt = current_time - last_time
+        last_time = current_time
+
         # Handle events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -497,9 +625,12 @@ def live_demo(fps=30, fullscreen=False, max_foods=10):
                     done = False
                     blob1_foods = 0
                     blob2_foods = 0
+                    blob1_alive = True
+                    blob2_alive = True
                     renderer.blob1_animation_start = None
                     renderer.blob2_animation_start = None
                     renderer.food_rotation_speeds.clear()
+                    renderer.particles.clear()
                     print(f"\nReset! Starting Episode {episode_num}...")
 
         if not paused:
@@ -526,6 +657,14 @@ def live_demo(fps=30, fullscreen=False, max_foods=10):
                 if blob2_foods > prev_blob2_foods:
                     renderer.trigger_food_animation(2)
 
+                # Check for blob death and trigger explosion
+                if blob1_alive and env.blob1_mass <= env.min_mass:
+                    renderer.create_explosion(env.blob1_pos, env.blob1_mass, 'blue')
+                    blob1_alive = False
+                if blob2_alive and env.blob2_mass <= env.min_mass:
+                    renderer.create_explosion(env.blob2_pos, env.blob2_mass, 'red')
+                    blob2_alive = False
+
                 # Update states
                 state1 = next_state1
                 state2 = next_state2
@@ -548,22 +687,29 @@ def live_demo(fps=30, fullscreen=False, max_foods=10):
                     print(f"  Final masses: Blob1={env.blob1_mass:.2f}, Blob2={env.blob2_mass:.2f}")
                     print(f"  Win count: Blob1={blob1_wins}, Blob2={blob2_wins}")
 
-                    # Auto-reset after brief pause
-                    renderer.render_frame(env, episode_num, blob1_foods, blob2_foods, blob1_wins, blob2_wins)
-                    pygame.time.wait(2000)  # Wait 2 seconds
+                    # Auto-reset after brief pause (keep rendering particles during wait)
+                    for _ in range(20):  # Render for ~2 seconds at 30fps
+                        renderer.render_frame(env, episode_num, blob1_foods, blob2_foods, blob1_wins, blob2_wins, dt)
+                        pygame.time.wait(100)
 
                     episode_num += 1
                     (state1, state2), _ = env.reset()
                     done = False
                     blob1_foods = 0
                     blob2_foods = 0
+                    blob1_alive = True
+                    blob2_alive = True
                     renderer.blob1_animation_start = None
                     renderer.blob2_animation_start = None
                     renderer.food_rotation_speeds.clear()
+                    renderer.particles.clear()
                     print(f"\nStarting Episode {episode_num}...")
 
             # Render current state
-            renderer.render_frame(env, episode_num, blob1_foods, blob2_foods, blob1_wins, blob2_wins)
+            renderer.render_frame(env, episode_num, blob1_foods, blob2_foods, blob1_wins, blob2_wins, dt)
+        else:
+            # Still render when paused to show particles
+            renderer.render_frame(env, episode_num, blob1_foods, blob2_foods, blob1_wins, blob2_wins, 0.0)
 
         renderer.clock.tick(fps)
 
