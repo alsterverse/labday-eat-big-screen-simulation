@@ -9,10 +9,16 @@ const { AIController } = require("./shared/controller");
 
 const TICK_RATE = 30; // Server ticks per second
 const TICK_INTERVAL = 1000 / TICK_RATE;
-const BROADCAST_RATE = 20; // State broadcasts per second
+const BROADCAST_RATE = 20; // State broadcasts per second (default)
 const BROADCAST_INTERVAL = 1000 / BROADCAST_RATE;
 const RESET_DELAY = 2000; // 2 seconds between episodes
 const PLAYER_RESPAWN_DELAY = 3000; // 3 seconds before player respawns
+
+// Adaptive broadcast rate settings
+const MIN_BROADCAST_INTERVAL = 50;  // 20Hz max (smoothest)
+const MAX_BROADCAST_INTERVAL = 200; // 5Hz min (under heavy load)
+const TICK_DURATION_HIGH = 25;      // ms - consider reducing broadcast rate
+const TICK_DURATION_LOW = 15;       // ms - consider increasing broadcast rate
 
 class GameServer {
   constructor() {
@@ -28,6 +34,11 @@ class GameServer {
     this.resetTimer = null;
     this.respawnTimers = new Map(); // clientId -> timer
     this.done = false;
+
+    // Adaptive broadcast rate
+    this.currentBroadcastInterval = BROADCAST_INTERVAL;
+    this.lastTickDuration = 0;
+    this.tickDurationSmoothed = 0; // Exponential moving average
   }
 
   async init() {
@@ -62,7 +73,8 @@ class GameServer {
   }
 
   tick() {
-    const now = Date.now();
+    const tickStart = Date.now();
+    const now = tickStart;
     const dt = Math.min((now - this.lastTick) / 1000, 0.1);
     this.lastTick = now;
 
@@ -112,8 +124,27 @@ class GameServer {
       }, RESET_DELAY);
     }
 
-    // Broadcast state at lower rate
-    if (now - this.lastBroadcast >= BROADCAST_INTERVAL) {
+    // Measure tick duration and adapt broadcast rate
+    this.lastTickDuration = Date.now() - tickStart;
+    this.tickDurationSmoothed = 0.9 * this.tickDurationSmoothed + 0.1 * this.lastTickDuration;
+
+    // Adjust broadcast interval based on server load
+    if (this.tickDurationSmoothed > TICK_DURATION_HIGH) {
+      // Server is under heavy load, reduce broadcast rate
+      this.currentBroadcastInterval = Math.min(
+        MAX_BROADCAST_INTERVAL,
+        this.currentBroadcastInterval + 5
+      );
+    } else if (this.tickDurationSmoothed < TICK_DURATION_LOW) {
+      // Server has headroom, increase broadcast rate
+      this.currentBroadcastInterval = Math.max(
+        MIN_BROADCAST_INTERVAL,
+        this.currentBroadcastInterval - 2
+      );
+    }
+
+    // Broadcast state at adaptive rate
+    if (now - this.lastBroadcast >= this.currentBroadcastInterval) {
       this.lastBroadcast = now;
       if (this.onBroadcast) {
         this.onBroadcast(this.getStateForBroadcast());
@@ -272,15 +303,16 @@ class GameServer {
     const state = this.game.getState();
     const stats = this.game.getStats();
 
-    // Add character info to blobs
+    // Build blobIndex→player lookup map (O(m) once, then O(1) per blob)
+    const blobToPlayer = new Map();
+    for (const [, player] of this.players) {
+      blobToPlayer.set(player.blobIndex, player);
+    }
+
+    // Add character info to blobs using lookup (O(n) instead of O(n*m))
     const blobsWithCharacter = state.blobs.map((blob, index) => {
-      // Find player with this blob index
-      for (const [, player] of this.players) {
-        if (player.blobIndex === index) {
-          return { ...blob, character: player.character };
-        }
-      }
-      return blob;
+      const player = blobToPlayer.get(index);
+      return player ? { ...blob, character: player.character } : blob;
     });
 
     return {

@@ -3,6 +3,8 @@
  * Port of blob_env.py to JavaScript, adapted for Node.js
  */
 
+const { Quadtree } = require("./quadtree");
+
 // Game constants (matching Python environment)
 const MAP_SIZE = 100.0;
 const AGENT_RADIUS = 2.5;
@@ -28,6 +30,53 @@ function createGame() {
   let terminated = false;
   let winner = null;
   let playerActions = new Map(); // Buffer for player actions
+
+  // Spatial partitioning for O(log n) queries
+  const treeBounds = { x: 0, y: 0, width: MAP_SIZE, height: MAP_SIZE };
+  const blobTree = new Quadtree(treeBounds, 8, 6);
+  const foodTree = new Quadtree(treeBounds, 8, 6);
+
+  // Cached observations to avoid redundant computation
+  let cachedObservations = null;
+
+  // Pre-allocated buffers for getState() to reduce GC pressure
+  const stateBuffer = {
+    blobs: [],
+    foods: [],
+    mapSize: MAP_SIZE,
+    agentRadius: AGENT_RADIUS,
+  };
+
+  // Pre-allocated buffers for getStats()
+  const statsBuffer = {
+    episode: 0,
+    steps: 0,
+    maxSteps: MAX_STEPS,
+    wins: [0, 0, 0],
+    blobs: [],
+    terminated: false,
+    winner: null,
+  };
+
+  /**
+   * Rebuild spatial trees with current entity positions
+   */
+  function rebuildTrees() {
+    blobTree.clear();
+    foodTree.clear();
+
+    for (let i = 0; i < blobs.length; i++) {
+      const blob = blobs[i];
+      if (blob.alive) {
+        blobTree.insert({ x: blob.x, y: blob.y, id: i, blob });
+      }
+    }
+
+    for (let i = 0; i < foods.length; i++) {
+      const food = foods[i];
+      foodTree.insert({ x: food.x, y: food.y, id: i, food });
+    }
+  }
 
   function normalizeAngle(angle) {
     return Math.atan2(Math.sin(angle), Math.cos(angle));
@@ -128,44 +177,33 @@ function createGame() {
     return blobs.length;
   }
 
-  function getObservation(blobId) {
+  /**
+   * Compute observation for a blob (internal, uncached)
+   */
+  function computeObservation(blobId) {
     const blob = blobs[blobId];
     if (!blob) return [0, 0, 0, 0, 1, 0, 1, 0];
 
     const maxDist = Math.sqrt(2) * MAP_SIZE;
 
-    // Find nearest other blob
+    // Find nearest other blob using quadtree
     let distToOther = 1.0;
     let angleToOther = 0.0;
-    let minDistOther = Infinity;
-    for (let i = 0; i < blobs.length; i++) {
-      if (i !== blobId && blobs[i].alive) {
-        const d = distance(blob, blobs[i]);
-        if (d < minDistOther) {
-          minDistOther = d;
-          distToOther = d / maxDist;
-          angleToOther = normalizeAngle(angleTo(blob, blobs[i]) - blob.angle);
-        }
-      }
+    const nearestBlobResult = blobTree.findNearest(blob.x, blob.y, blobId);
+    if (nearestBlobResult) {
+      const d = Math.sqrt(nearestBlobResult.distSq);
+      distToOther = d / maxDist;
+      angleToOther = normalizeAngle(angleTo(blob, nearestBlobResult.point) - blob.angle);
     }
 
-    // Find nearest food
+    // Find nearest food using quadtree
     let distToFood = 1.0;
     let angleToFood = 0.0;
-    if (foods.length > 0) {
-      let minDist = Infinity;
-      let nearestFood = null;
-      for (const food of foods) {
-        const d = distance(blob, food);
-        if (d < minDist) {
-          minDist = d;
-          nearestFood = food;
-        }
-      }
-      if (nearestFood) {
-        distToFood = minDist / maxDist;
-        angleToFood = normalizeAngle(angleTo(blob, nearestFood) - blob.angle);
-      }
+    const nearestFoodResult = foodTree.findNearest(blob.x, blob.y);
+    if (nearestFoodResult) {
+      const d = Math.sqrt(nearestFoodResult.distSq);
+      distToFood = d / maxDist;
+      angleToFood = normalizeAngle(angleTo(blob, nearestFoodResult.point) - blob.angle);
     }
 
     return [
@@ -178,6 +216,16 @@ function createGame() {
       distToFood,
       angleToFood,
     ];
+  }
+
+  /**
+   * Get observation for a blob, using cache if available
+   */
+  function getObservation(blobId) {
+    if (cachedObservations && cachedObservations[blobId]) {
+      return cachedObservations[blobId];
+    }
+    return computeObservation(blobId);
   }
 
   /**
@@ -204,6 +252,9 @@ function createGame() {
   }
 
   function step(actions, dt) {
+    // Invalidate observation cache at start of step
+    cachedObservations = null;
+
     if (terminated) {
       return {
         observations: blobs.map((_, i) => getObservation(i)),
@@ -245,21 +296,38 @@ function createGame() {
       blob.mass -= massDecay;
     }
 
-    // Check food collisions
+    // Rebuild spatial trees after movement
+    rebuildTrees();
+
+    // Check food collisions using quadtree (O(n log n) instead of O(n²))
     const foodCollisionRadius = AGENT_RADIUS + 1.0;
-    for (let i = foods.length - 1; i >= 0; i--) {
-      const food = foods[i];
-      for (let j = 0; j < blobs.length; j++) {
-        const blob = blobs[j];
-        if (!blob.alive) continue;
-        if (distance(blob, food) < foodCollisionRadius) {
+    const foodCollisionRadiusSq = foodCollisionRadius * foodCollisionRadius;
+    const collidedFoodIds = new Set();
+
+    for (let j = 0; j < blobs.length; j++) {
+      const blob = blobs[j];
+      if (!blob.alive) continue;
+
+      // Query foods near this blob
+      const nearbyFoods = foodTree.queryCircle(blob.x, blob.y, foodCollisionRadius);
+
+      for (const foodPoint of nearbyFoods) {
+        if (collidedFoodIds.has(foodPoint.id)) continue;
+
+        const dx = blob.x - foodPoint.x;
+        const dy = blob.y - foodPoint.y;
+        if (dx * dx + dy * dy < foodCollisionRadiusSq) {
           blob.mass += FOOD_GAIN;
           blob.foodsCollected++;
-          events.push({ type: "foodCollected", blobId: j, food: { ...food } });
-          foods[i] = spawnFood();
-          break;
+          events.push({ type: "foodCollected", blobId: j, food: { x: foodPoint.x, y: foodPoint.y } });
+          collidedFoodIds.add(foodPoint.id);
         }
       }
+    }
+
+    // Respawn collided foods
+    for (const foodId of collidedFoodIds) {
+      foods[foodId] = spawnFood();
     }
 
     let rewards = blobs.map((b) => (b.alive ? 0.01 : 0));
@@ -305,8 +373,11 @@ function createGame() {
       episode++;
     }
 
+    // Compute and cache observations once
+    cachedObservations = blobs.map((_, i) => computeObservation(i));
+
     return {
-      observations: blobs.map((_, i) => getObservation(i)),
+      observations: cachedObservations,
       rewards: rewards,
       done: terminated || truncated,
       truncated: truncated,
@@ -315,30 +386,72 @@ function createGame() {
   }
 
   function getState() {
-    return {
-      blobs: blobs.map((b) => ({ ...b })),
-      foods: foods.map((f) => ({ ...f })),
-      mapSize: MAP_SIZE,
-      agentRadius: AGENT_RADIUS,
-    };
+    // Reuse pre-allocated buffer arrays, resize only if needed
+    while (stateBuffer.blobs.length < blobs.length) {
+      stateBuffer.blobs.push({});
+    }
+    stateBuffer.blobs.length = blobs.length;
+
+    while (stateBuffer.foods.length < foods.length) {
+      stateBuffer.foods.push({});
+    }
+    stateBuffer.foods.length = foods.length;
+
+    // Copy blob data into buffer
+    for (let i = 0; i < blobs.length; i++) {
+      const src = blobs[i];
+      const dst = stateBuffer.blobs[i];
+      dst.x = src.x;
+      dst.y = src.y;
+      dst.angle = src.angle;
+      dst.mass = src.mass;
+      dst.foodsCollected = src.foodsCollected;
+      dst.alive = src.alive;
+      dst.aiControlled = src.aiControlled;
+      dst.character = src.character;
+    }
+
+    // Copy food data into buffer
+    for (let i = 0; i < foods.length; i++) {
+      const src = foods[i];
+      const dst = stateBuffer.foods[i];
+      dst.x = src.x;
+      dst.y = src.y;
+    }
+
+    return stateBuffer;
   }
 
   function getStats() {
-    return {
-      episode: episode,
-      steps: steps,
-      maxSteps: MAX_STEPS,
-      wins: [...wins],
-      blobs: blobs.map((b) => ({
-        mass: b.mass,
-        foodsCollected: b.foodsCollected,
-        alive: b.alive,
-        aiControlled: b.aiControlled,
-        character: b.character,
-      })),
-      terminated: terminated,
-      winner: winner,
-    };
+    // Reuse pre-allocated buffer, resize blobs array only if needed
+    while (statsBuffer.blobs.length < blobs.length) {
+      statsBuffer.blobs.push({});
+    }
+    statsBuffer.blobs.length = blobs.length;
+
+    // Update scalar values
+    statsBuffer.episode = episode;
+    statsBuffer.steps = steps;
+    statsBuffer.terminated = terminated;
+    statsBuffer.winner = winner;
+
+    // Copy wins array
+    for (let i = 0; i < wins.length; i++) {
+      statsBuffer.wins[i] = wins[i];
+    }
+
+    // Copy blob stats into buffer
+    for (let i = 0; i < blobs.length; i++) {
+      const src = blobs[i];
+      const dst = statsBuffer.blobs[i];
+      dst.mass = src.mass;
+      dst.foodsCollected = src.foodsCollected;
+      dst.alive = src.alive;
+      dst.aiControlled = src.aiControlled;
+      dst.character = src.character;
+    }
+
+    return statsBuffer;
   }
 
   /**
