@@ -8,7 +8,6 @@ const fs = require("fs");
 const path = require("path");
 const GameServer = require("./game-server");
 const WebSocketHandler = require("./websocket-handler");
-const { generateVisitorToken } = require("./visitor-token");
 
 const PORT = process.env.PORT || 3000;
 const FRONTEND_DIR = path.join(__dirname, "../../frontend/public");
@@ -25,17 +24,6 @@ const MIME_TYPES = {
 
 function handleRequest(req, res) {
   const urlPath = req.url.split("?")[0]; // Remove query string
-
-  // API endpoint for visitor token
-  if (urlPath === "/api/visitor-token") {
-    const token = generateVisitorToken();
-    res.writeHead(200, {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-store",
-    });
-    res.end(JSON.stringify({ token }));
-    return;
-  }
 
   // Serve static files
   serveStatic(urlPath, res);

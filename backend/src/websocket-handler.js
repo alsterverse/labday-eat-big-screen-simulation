@@ -3,34 +3,12 @@
  */
 
 const { WebSocketServer } = require("ws");
-const { validateVisitorToken } = require("./visitor-token");
 const { encodeState } = require("./binary-protocol");
 
 let clientIdCounter = 0;
 
 function generateClientId() {
   return `client_${++clientIdCounter}_${Date.now().toString(36)}`;
-}
-
-/**
- * Parse cookies from request headers
- * @param {string} cookieHeader - Cookie header string
- * @returns {Object} Parsed cookies as key-value pairs
- */
-function parseCookies(cookieHeader) {
-  const cookies = {};
-  if (!cookieHeader) return cookies;
-
-  cookieHeader.split(";").forEach((cookie) => {
-    const parts = cookie.split("=");
-    const key = parts[0].trim();
-    const value = parts.slice(1).join("=").trim();
-    if (key) {
-      cookies[key] = value;
-    }
-  });
-
-  return cookies;
 }
 
 // Load test mode - set via environment variable
@@ -119,15 +97,6 @@ class WebSocketHandler {
 
         // Skip validation in load test mode
         if (!LOAD_TEST_MODE) {
-          // Validate visitor token from cookie
-          const cookies = parseCookies(req.headers.cookie);
-          const visitorToken = cookies.visitor_token;
-          if (!validateVisitorToken(visitorToken)) {
-            console.log(`Invalid or missing visitor token`);
-            ws.close(1008, "Visit spectator page first");
-            return;
-          }
-
           // Require session token
           if (!sessionToken || sessionToken.length < 10) {
             console.log(`Missing or invalid token`);
