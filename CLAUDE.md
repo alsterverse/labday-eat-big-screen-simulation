@@ -145,3 +145,4 @@ http://206.189.108.247
 - Always ensure the virtual environment is activated before running Python scripts
 - The `venv/` and `node_modules/` directories are excluded from version control
 - Model files (`.pth`, `.pkl`) are gitignored
+- If you push something to main. update the version number.
