@@ -16,7 +16,7 @@ const PLAYER_RESPAWN_DELAY = 3000; // 3 seconds before player respawns
 
 // Adaptive broadcast rate settings
 const MIN_BROADCAST_INTERVAL = 50;  // 20Hz max (smoothest)
-const MAX_BROADCAST_INTERVAL = 200; // 5Hz min (under heavy load)
+const MAX_BROADCAST_INTERVAL = 100; // 10Hz min (under heavy load)
 const TICK_DURATION_HIGH = 25;      // ms - consider reducing broadcast rate
 const TICK_DURATION_LOW = 15;       // ms - consider increasing broadcast rate
 
