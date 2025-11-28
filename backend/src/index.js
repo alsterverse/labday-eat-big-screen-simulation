@@ -26,8 +26,7 @@ function serveStatic(req, res) {
   let urlPath = req.url.split("?")[0]; // Remove query string
 
   // Route mapping for clean URLs
-  if (urlPath === "/") urlPath = "/index.html";
-  else if (urlPath === "/play") urlPath = "/play.html";
+  if (urlPath === "/" || urlPath === "/play") urlPath = "/index.html";
 
   let filePath = path.join(FRONTEND_DIR, urlPath);
 
@@ -61,8 +60,7 @@ async function main() {
   // Start server
   server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
-    console.log(`  Spectator: http://localhost:${PORT}/`);
-    console.log(`  Player:    http://localhost:${PORT}/play.html`);
+    console.log(`  Use mode toggle button to switch between Spectator and Player modes`);
   });
 
   // Graceful shutdown
