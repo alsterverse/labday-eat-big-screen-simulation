@@ -1,5 +1,6 @@
 [build]
-  publish = "."
+  publish = "web"
+  command = "echo 'No build needed - static files only'"
 
 [[headers]]
   for = "/*"
