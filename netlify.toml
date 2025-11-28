@@ -1,7 +1,0 @@
-[build]
-  publish = "web"
-
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"

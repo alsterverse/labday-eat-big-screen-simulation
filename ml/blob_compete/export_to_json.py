@@ -16,6 +16,6 @@ def export_weights_to_json(npz_path: str, json_path: str):
 
 
 if __name__ == "__main__":
-    export_weights_to_json('blob_compete/blob1_weights.npz', 'web/models/blob1_weights.json')
-    export_weights_to_json('blob_compete/blob2_weights.npz', 'web/models/blob2_weights.json')
+    export_weights_to_json('blob_compete/blob1_weights.npz', 'blob_compete_js/weights/blob1_weights.json')
+    export_weights_to_json('blob_compete/blob2_weights.npz', 'blob_compete_js/weights/blob2_weights.json')
     print("All weights exported to JSON!")
