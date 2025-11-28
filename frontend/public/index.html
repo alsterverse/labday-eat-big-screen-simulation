@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -44,12 +45,29 @@
     }
 
     @keyframes vibrate {
-      0% { transform: translate(0); }
-      20% { transform: translate(-1px, 1px); }
-      40% { transform: translate(-1px, -1px); }
-      60% { transform: translate(1px, 1px); }
-      80% { transform: translate(1px, -1px); }
-      100% { transform: translate(0); }
+      0% {
+        transform: translate(0);
+      }
+
+      20% {
+        transform: translate(-1px, 1px);
+      }
+
+      40% {
+        transform: translate(-1px, -1px);
+      }
+
+      60% {
+        transform: translate(1px, 1px);
+      }
+
+      80% {
+        transform: translate(1px, -1px);
+      }
+
+      100% {
+        transform: translate(0);
+      }
     }
 
     #episode {
@@ -57,13 +75,13 @@
       font-weight: bold;
       text-align: center;
       color: #fff;
-      animation: vibrate 0.3s linear infinite;
     }
 
     #steps {
       text-align: center;
       color: #888;
       font-size: 14px;
+      animation: vibrate 0.1s linear infinite;
     }
 
     .section {
@@ -92,9 +110,17 @@
       height: 24px;
     }
 
-    .blob1-color { color: #3278dc; }
-    .blob2-color { color: #dc3232; }
-    .player-color { color: #32dc64; }
+    .blob1-color {
+      color: #3278dc;
+    }
+
+    .blob2-color {
+      color: #dc3232;
+    }
+
+    .player-color {
+      color: #32dc64;
+    }
 
     .win-count {
       font-size: 24px;
@@ -234,9 +260,17 @@
       color: #888;
     }
 
-    .leaderboard-rank.first { color: #ffd700; }
-    .leaderboard-rank.second { color: #c0c0c0; }
-    .leaderboard-rank.third { color: #cd7f32; }
+    .leaderboard-rank.first {
+      color: #ffd700;
+    }
+
+    .leaderboard-rank.second {
+      color: #c0c0c0;
+    }
+
+    .leaderboard-rank.third {
+      color: #cd7f32;
+    }
 
     .leaderboard-icon {
       width: 20px;
@@ -271,8 +305,15 @@
     }
 
     @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
     }
 
     .player-row {
@@ -333,11 +374,21 @@
       color: #fff;
     }
 
-    .spectator-only { display: block; }
-    .player-only { display: none; }
+    .spectator-only {
+      display: block;
+    }
 
-    body.player-mode .spectator-only { display: none; }
-    body.player-mode .player-only { display: block; }
+    .player-only {
+      display: none;
+    }
+
+    body.player-mode .spectator-only {
+      display: none;
+    }
+
+    body.player-mode .player-only {
+      display: block;
+    }
 
     /* Character Selection Overlay */
     #character-select-overlay {
@@ -407,6 +458,7 @@
     }
   </style>
 </head>
+
 <body>
   <!-- Character Selection Overlay (hidden by default) -->
   <div id="character-select-overlay" class="hidden">
@@ -481,4 +533,5 @@
   <script src="js/player-input.js"></script>
   <script src="js/client-main.js"></script>
 </body>
+
 </html>
