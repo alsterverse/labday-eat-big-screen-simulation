@@ -12,15 +12,6 @@ ENV/
 *.pth
 *.pkl
 
-# Training outputs
-*.png
-*.jpg
-*.jpeg
-
-# But keep assets
-!assets/
-!assets/**
-
 # IDE
 .vscode/
 .idea/
