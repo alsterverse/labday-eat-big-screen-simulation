@@ -37,41 +37,44 @@ const UI = (function () {
     elements.episode.textContent = `Episode ${stats.episode}`;
     elements.steps.textContent = `Step: ${stats.steps} / ${stats.maxSteps}`;
 
-    // Create leaderboard sorted by food collected (descending)
+    // Create leaderboard sorted by food collected (descending), excluding AI blobs
     if (elements.leaderboard && stats.blobs) {
       const sorted = stats.blobs
         .map((blob, index) => ({
           index,
-          // Add "AI" prefix only for AI-controlled blobs
-          name: blob.aiControlled ? `AI Blob ${index + 1}` : `Blob ${index + 1}`,
+          name: blob.character || `Player ${index + 1}`,
           foods: blob.foodsCollected || 0,
           character: blob.character,
-          // Use the correct character icon if available, otherwise default
-          // blob.character is the filename like "mats", "krille", etc.
+          aiControlled: blob.aiControlled,
           icon: blob.character ? `assets/players/${blob.character}.png` : `assets/blob${(index % 2) + 1}.png`
         }))
+        .filter((blob) => !blob.aiControlled)
         .sort((a, b) => b.foods - a.foods);
 
       let leaderboardHTML = '';
-      sorted.forEach((blob, rank) => {
-        const rankClass = rank === 0 ? 'first' : rank === 1 ? 'second' : rank === 2 ? 'third' : '';
-        const isPlayer = blob.index === playerBlobIndex;
-        const playerArrow = isPlayer ? '<span class="player-arrow">➤</span>' : '';
-        const rowClass = isPlayer ? 'leaderboard-row player-row' : 'leaderboard-row';
+      if (sorted.length === 0) {
+        leaderboardHTML = '<div class="leaderboard-empty">No players yet</div>';
+      } else {
+        sorted.forEach((blob, rank) => {
+          const rankClass = rank === 0 ? 'first' : rank === 1 ? 'second' : rank === 2 ? 'third' : '';
+          const isPlayer = blob.index === playerBlobIndex;
+          const playerArrow = isPlayer ? '<span class="player-arrow">➤</span>' : '';
+          const rowClass = isPlayer ? 'leaderboard-row player-row' : 'leaderboard-row';
 
-        leaderboardHTML += `
-          <div class="${rowClass}">
-            ${playerArrow}
-            <span class="leaderboard-rank ${rankClass}">${rank + 1}</span>
-            <img src="${blob.icon}" class="leaderboard-icon" alt="${blob.name}">
-            <span class="leaderboard-name">${blob.name}</span>
-            <span class="leaderboard-food">
-              <img src="assets/food.png" class="leaderboard-food-icon" alt="food">
-              ${blob.foods}
-            </span>
-          </div>
-        `;
-      });
+          leaderboardHTML += `
+            <div class="${rowClass}">
+              ${playerArrow}
+              <span class="leaderboard-rank ${rankClass}">${rank + 1}</span>
+              <img src="${blob.icon}" class="leaderboard-icon" alt="${blob.name}">
+              <span class="leaderboard-name">${blob.name}</span>
+              <span class="leaderboard-food">
+                <img src="assets/food.png" class="leaderboard-food-icon" alt="food">
+                ${blob.foods}
+              </span>
+            </div>
+          `;
+        });
+      }
       elements.leaderboard.innerHTML = leaderboardHTML;
     }
 
