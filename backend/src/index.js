@@ -8,6 +8,7 @@ const fs = require("fs");
 const path = require("path");
 const GameServer = require("./game-server");
 const WebSocketHandler = require("./websocket-handler");
+const { generateVisitorToken } = require("./visitor-token");
 
 const PORT = process.env.PORT || 3000;
 const FRONTEND_DIR = path.join(__dirname, "../../frontend/public");
@@ -22,13 +23,29 @@ const MIME_TYPES = {
   ".json": "application/json",
 };
 
-function serveStatic(req, res) {
-  let urlPath = req.url.split("?")[0]; // Remove query string
+function handleRequest(req, res) {
+  const urlPath = req.url.split("?")[0]; // Remove query string
 
+  // API endpoint for visitor token
+  if (urlPath === "/api/visitor-token") {
+    const token = generateVisitorToken();
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+    });
+    res.end(JSON.stringify({ token }));
+    return;
+  }
+
+  // Serve static files
+  serveStatic(urlPath, res);
+}
+
+function serveStatic(urlPath, res) {
   // Route mapping for clean URLs
   if (urlPath === "/" || urlPath === "/play") urlPath = "/index.html";
 
-  let filePath = path.join(FRONTEND_DIR, urlPath);
+  const filePath = path.join(FRONTEND_DIR, urlPath);
 
   const ext = path.extname(filePath);
   const contentType = MIME_TYPES[ext] || "application/octet-stream";
@@ -45,7 +62,7 @@ function serveStatic(req, res) {
 }
 
 async function main() {
-  const server = http.createServer(serveStatic);
+  const server = http.createServer(handleRequest);
 
   // Initialize game server
   const gameServer = new GameServer();
