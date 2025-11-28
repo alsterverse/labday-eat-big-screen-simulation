@@ -9,8 +9,24 @@ const WebSocketClient = (function () {
   let callbacks = {};
   let reconnectAttempts = 0;
   let currentCharacter = null;
+  let sessionToken = null;
   const MAX_RECONNECT_ATTEMPTS = 5;
   const RECONNECT_DELAY = 2000;
+
+  // Generate or retrieve session token from localStorage
+  function getSessionToken() {
+    if (!sessionToken) {
+      sessionToken = localStorage.getItem('blob_session_token');
+      if (!sessionToken) {
+        // Generate a unique token using crypto API
+        const array = new Uint8Array(16);
+        crypto.getRandomValues(array);
+        sessionToken = Array.from(array, byte => byte.toString(36)).join('');
+        localStorage.setItem('blob_session_token', sessionToken);
+      }
+    }
+    return sessionToken;
+  }
 
   function connect(isPlayerMode, character, onInit, onState, onEvent, onDisconnect) {
     callbacks = { onInit, onState, onEvent, onDisconnect };
@@ -18,9 +34,20 @@ const WebSocketClient = (function () {
 
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
     let path = isPlayerMode ? "/ws/play" : "/ws/";
+
+    // Build query params
+    const params = [];
     if (character) {
-      path += `?character=${encodeURIComponent(character)}`;
+      params.push(`character=${encodeURIComponent(character)}`);
     }
+    if (isPlayerMode) {
+      params.push(`token=${encodeURIComponent(getSessionToken())}`);
+    }
+
+    if (params.length > 0) {
+      path += `?${params.join('&')}`;
+    }
+
     const wsUrl = `${protocol}//${location.host}${path}`;
 
     console.log("Connecting to:", wsUrl);
