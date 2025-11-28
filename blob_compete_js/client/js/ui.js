@@ -1,15 +1,10 @@
 /**
- * UI Overlay Module
- * Manages the stats panel and controls display
+ * UI Overlay Module (Client Version)
  */
 
 const UI = (function () {
   let elements = {};
-  let isPlayerMode = false;
 
-  /**
-   * Initialize UI elements
-   */
   function init() {
     elements = {
       episode: document.getElementById("episode"),
@@ -23,17 +18,14 @@ const UI = (function () {
       blob1Foods: document.getElementById("blob1-foods"),
       blob2Foods: document.getElementById("blob2-foods"),
       status: document.getElementById("status"),
-      pauseIndicator: document.getElementById("pause-indicator"),
       modeIndicator: document.getElementById("mode-indicator"),
       playerSection: document.getElementById("player-section"),
       playerMass: document.getElementById("player-mass"),
       playerFoods: document.getElementById("player-foods"),
+      connectionStatus: document.getElementById("connection-status"),
     };
   }
 
-  /**
-   * Create trophy icons HTML
-   */
   function createTrophies(count) {
     let html = "";
     for (let i = 0; i < Math.min(count, 20); i++) {
@@ -45,11 +37,8 @@ const UI = (function () {
     return html;
   }
 
-  /**
-   * Update UI with current stats
-   */
   function update(stats, playerBlobIndex) {
-    if (!elements.episode) return;
+    if (!elements.episode || !stats) return;
 
     elements.episode.textContent = `Episode ${stats.episode}`;
     elements.steps.textContent = `Step: ${stats.steps} / ${stats.maxSteps}`;
@@ -60,22 +49,20 @@ const UI = (function () {
     elements.blob1Trophies.innerHTML = createTrophies(stats.wins[0]);
     elements.blob2Trophies.innerHTML = createTrophies(stats.wins[1]);
 
-    elements.blob1Mass.textContent = stats.blobs[0]?.mass.toFixed(2) || "0.00";
-    elements.blob2Mass.textContent = stats.blobs[1]?.mass.toFixed(2) || "0.00";
+    elements.blob1Mass.textContent = stats.blobs[0]?.mass?.toFixed(2) || "0.00";
+    elements.blob2Mass.textContent = stats.blobs[1]?.mass?.toFixed(2) || "0.00";
 
     elements.blob1Foods.textContent = stats.blobs[0]?.foodsCollected || 0;
     elements.blob2Foods.textContent = stats.blobs[1]?.foodsCollected || 0;
 
-    // Update player stats if in game
     if (elements.playerSection && playerBlobIndex !== -1 && stats.blobs[playerBlobIndex]) {
       elements.playerSection.style.display = "block";
-      elements.playerMass.textContent = stats.blobs[playerBlobIndex].mass.toFixed(2);
-      elements.playerFoods.textContent = stats.blobs[playerBlobIndex].foodsCollected;
+      elements.playerMass.textContent = stats.blobs[playerBlobIndex].mass?.toFixed(2) || "0.00";
+      elements.playerFoods.textContent = stats.blobs[playerBlobIndex].foodsCollected || 0;
     } else if (elements.playerSection) {
       elements.playerSection.style.display = "none";
     }
 
-    // Status
     if (stats.terminated) {
       if (stats.winner === 0) {
         elements.status.textContent = "BLOB 1 WINS!";
@@ -93,21 +80,7 @@ const UI = (function () {
     }
   }
 
-  /**
-   * Show/hide pause indicator
-   */
-  function setPaused(paused) {
-    if (elements.pauseIndicator) {
-      elements.pauseIndicator.style.display = paused ? "block" : "none";
-    }
-  }
-
-  /**
-   * Update UI for player mode (playing vs spectating)
-   */
   function setPlayerMode(playing) {
-    isPlayerMode = playing;
-
     if (elements.modeIndicator) {
       if (playing) {
         elements.modeIndicator.textContent = "Playing";
@@ -119,10 +92,22 @@ const UI = (function () {
     }
   }
 
+  function setConnectionStatus(connected) {
+    if (elements.connectionStatus) {
+      if (connected) {
+        elements.connectionStatus.textContent = "Connected";
+        elements.connectionStatus.className = "connection-status connected";
+      } else {
+        elements.connectionStatus.textContent = "Disconnected";
+        elements.connectionStatus.className = "connection-status disconnected";
+      }
+    }
+  }
+
   return {
     init,
     update,
-    setPaused,
     setPlayerMode,
+    setConnectionStatus,
   };
 })();
