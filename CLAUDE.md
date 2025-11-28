@@ -109,7 +109,7 @@ The frontend serves static HTML/JS files and proxies WebSocket connections to th
 
 ## Deployment
 
-The app is deployed to a VPS using Docker Compose with two containers:
+The app is deployed to a **DigitalOcean Droplet** (`ssh root@206.189.108.247`) using Docker Compose with two containers:
 - **backend**: Node.js WebSocket server (internal port 3000)
 - **frontend**: Nginx serving static files (port 80), proxies `/ws` to backend
 

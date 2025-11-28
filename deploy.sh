@@ -38,4 +38,4 @@ rsync -avz \
 # Build and run
 ssh $SSH_OPTS $SERVER "cd $REMOTE_DIR && docker compose up --build -d"
 
-echo "Deployed! Site available at http://$VPS_HOST"
+echo "Deployed! Site available at https://simulation.dev.alster.se"
