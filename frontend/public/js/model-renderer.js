@@ -330,7 +330,7 @@ const ModelRenderer = (function () {
     ]);
   }
 
-  function render(modelName, x, y, scale, rotation, viewportWidth, viewportHeight) {
+  function render(modelName, x, y, scale, rotation, viewportWidth, viewportHeight, spinAngle = 0) {
     const model = loadedModels[modelName];
     if (!model) {
       console.warn('Model not found:', modelName);
@@ -371,12 +371,14 @@ const ModelRenderer = (function () {
     const baseRotation = mat4FromRotationZ(Math.PI / 2);
     const yRotation = mat4FromRotationY(yAngle);
     const xRotation = mat4FromRotationX(isoTilt);
+    const spinRotation = mat4FromRotationX(spinAngle);
     const scaleMatrix = mat4FromScaling(s, s, s);
     const translateMatrix = mat4FromTranslation(ndcX, ndcY, 0);
 
-    // Combine: translate * scale * Rx * Ry * Rz_base
+    // Combine: translate * scale * Rx * Ry * spin * Rz_base
     let rotatedMatrix = mat4Create();
-    mat4Multiply(rotatedMatrix, yRotation, baseRotation);
+    mat4Multiply(rotatedMatrix, spinRotation, baseRotation);
+    mat4Multiply(rotatedMatrix, yRotation, rotatedMatrix);
     mat4Multiply(rotatedMatrix, xRotation, rotatedMatrix);
     mat4Multiply(rotatedMatrix, scaleMatrix, rotatedMatrix);
     mat4Multiply(rotatedMatrix, translateMatrix, rotatedMatrix);

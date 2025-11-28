@@ -163,19 +163,25 @@
 
   function handleEvent(event) {
     switch (event.type) {
-      case "foodCollected":
+      case "foodCollected": {
         Renderer.triggerBounce(event.blobId);
         Renderer.playEatSound();
+        const currentState = Interpolator.getInterpolatedState();
+        if (currentState && currentState.blobs[event.blobId]?.character === "linda") {
+          Renderer.triggerSpin(event.blobId);
+        }
         break;
+      }
 
-      case "death":
-        const state = Interpolator.getInterpolatedState();
-        if (state && state.blobs[event.blobId]) {
-          const blob = state.blobs[event.blobId];
+      case "death": {
+        const currentState = Interpolator.getInterpolatedState();
+        if (currentState && currentState.blobs[event.blobId]) {
+          const blob = currentState.blobs[event.blobId];
           const screen = Renderer.worldToScreen(blob.x, blob.y);
           Renderer.spawnExplosion(screen.x, screen.y, event.blobId);
         }
         break;
+      }
 
       case "episodeReset":
         console.log("Episode reset");
