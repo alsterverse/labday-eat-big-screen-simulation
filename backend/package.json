@@ -4,7 +4,9 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "start:loadtest": "LOAD_TEST_MODE=true MAX_PLAYERS=500 node src/index.js",
+    "loadtest": "node load-test.js"
   },
   "dependencies": {
     "ws": "^8.14.2"

@@ -4,6 +4,7 @@
 
 const { WebSocketServer } = require("ws");
 const { validateVisitorToken } = require("./visitor-token");
+const { encodeState } = require("./binary-protocol");
 
 let clientIdCounter = 0;
 
@@ -32,14 +33,17 @@ function parseCookies(cookieHeader) {
   return cookies;
 }
 
-const MAX_PLAYERS = 100; // Maximum number of players allowed
-const CONNECTION_RATE_LIMIT = 2000; // 2 seconds between connections from same client
+// Load test mode - set via environment variable
+const LOAD_TEST_MODE = process.env.LOAD_TEST_MODE === 'true';
+const MAX_PLAYERS = parseInt(process.env.MAX_PLAYERS || '100', 10);
+const CONNECTION_RATE_LIMIT = LOAD_TEST_MODE ? 0 : 2000; // Disable rate limiting in test mode
 const activeTokens = new Set(); // Track active session tokens to prevent duplicate joins
 const tokenConnectionTimes = new Map(); // token -> last connection timestamp
 
 class WebSocketHandler {
   constructor(server, gameServer) {
-    this.wss = new WebSocketServer({ server });
+    // Disable compression - using binary protocol instead
+    this.wss = new WebSocketServer({ server, perMessageDeflate: false });
     this.gameServer = gameServer;
     this.clients = new Map(); // clientId -> { ws, type, blobIndex }
 
@@ -48,9 +52,9 @@ class WebSocketHandler {
   }
 
   setupGameCallbacks() {
-    // Broadcast state updates
+    // Broadcast state updates using binary protocol
     this.gameServer.onBroadcast = (state) => {
-      this.broadcast({ type: "state", ...state });
+      this.broadcastBinary(encodeState(state));
     };
 
     // Handle game events
@@ -113,27 +117,30 @@ class WebSocketHandler {
       if (isPlayer) {
         const now = Date.now();
 
-        // Validate visitor token from cookie
-        const cookies = parseCookies(req.headers.cookie);
-        const visitorToken = cookies.visitor_token;
-        if (!validateVisitorToken(visitorToken)) {
-          console.log(`Invalid or missing visitor token`);
-          ws.close(1008, "Visit spectator page first");
-          return;
-        }
+        // Skip validation in load test mode
+        if (!LOAD_TEST_MODE) {
+          // Validate visitor token from cookie
+          const cookies = parseCookies(req.headers.cookie);
+          const visitorToken = cookies.visitor_token;
+          if (!validateVisitorToken(visitorToken)) {
+            console.log(`Invalid or missing visitor token`);
+            ws.close(1008, "Visit spectator page first");
+            return;
+          }
 
-        // Require session token
-        if (!sessionToken || sessionToken.length < 10) {
-          console.log(`Missing or invalid token`);
-          ws.close(1008, "Invalid session");
-          return;
-        }
+          // Require session token
+          if (!sessionToken || sessionToken.length < 10) {
+            console.log(`Missing or invalid token`);
+            ws.close(1008, "Invalid session");
+            return;
+          }
 
-        // Check if token is already in use
-        if (activeTokens.has(sessionToken)) {
-          console.log(`Token ${sessionToken} already in use`);
-          ws.close(1008, "Already connected");
-          return;
+          // Check if token is already in use
+          if (activeTokens.has(sessionToken)) {
+            console.log(`Token ${sessionToken} already in use`);
+            ws.close(1008, "Already connected");
+            return;
+          }
         }
 
         // Rate limiting per token
@@ -152,8 +159,8 @@ class WebSocketHandler {
           return;
         }
 
-        // Require character selection
-        if (!character) {
+        // Require character selection (skip in load test mode)
+        if (!LOAD_TEST_MODE && !character) {
           console.log(`No character selected`);
           ws.close(1008, "Character selection required");
           return;
@@ -292,6 +299,14 @@ class WebSocketHandler {
     for (const client of this.clients.values()) {
       if (client.ws.readyState === client.ws.OPEN) {
         client.ws.send(data);
+      }
+    }
+  }
+
+  broadcastBinary(buffer) {
+    for (const client of this.clients.values()) {
+      if (client.ws.readyState === client.ws.OPEN) {
+        client.ws.send(buffer);
       }
     }
   }

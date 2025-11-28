@@ -53,6 +53,7 @@ const WebSocketClient = (function () {
     console.log("Connecting to:", wsUrl);
 
     ws = new WebSocket(wsUrl);
+    ws.binaryType = 'arraybuffer';
 
     ws.onopen = () => {
       console.log("WebSocket connected");
@@ -61,6 +62,15 @@ const WebSocketClient = (function () {
 
     ws.onmessage = (event) => {
       try {
+        // Handle binary messages (state updates)
+        if (event.data instanceof ArrayBuffer) {
+          const state = BinaryProtocol.decodeState(event.data);
+          if (state && callbacks.onState) {
+            callbacks.onState(state);
+          }
+          return;
+        }
+        // Handle JSON messages (init, events, etc.)
         const message = JSON.parse(event.data);
         handleMessage(message);
       } catch (err) {

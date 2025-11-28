@@ -78,6 +78,12 @@ async function main() {
   server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
     console.log(`  Use mode toggle button to switch between Spectator and Player modes`);
+
+    if (process.env.LOAD_TEST_MODE === 'true') {
+      console.log(`\n*** LOAD TEST MODE ENABLED ***`);
+      console.log(`  MAX_PLAYERS: ${process.env.MAX_PLAYERS || 100}`);
+      console.log(`  Validation and rate limiting disabled`);
+    }
   });
 
   // Graceful shutdown
