@@ -1,0 +1,9 @@
+[build]
+  # Skip build - just serve static files
+  command = "echo 'No build needed - serving static files'"
+  publish = "blob_compete/web"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
