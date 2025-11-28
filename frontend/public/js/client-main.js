@@ -14,6 +14,41 @@
   let connected = false;
   let gameConstants = { mapSize: 100, initialMass: 5.0 };
   let initialized = false;
+  let selectedCharacter = null;
+
+  function setupCharacterSelection() {
+    const overlay = document.getElementById("character-select-overlay");
+    const cards = document.querySelectorAll(".character-card");
+
+    // Show the overlay
+    overlay.classList.remove("hidden");
+
+    // Remove old listeners by cloning cards
+    cards.forEach(card => {
+      const newCard = card.cloneNode(true);
+      card.parentNode.replaceChild(newCard, card);
+    });
+
+    // Add fresh listeners
+    document.querySelectorAll(".character-card").forEach(card => {
+      card.addEventListener("click", () => {
+        selectedCharacter = card.dataset.character;
+        overlay.classList.add("hidden");
+        connectToServer();
+      });
+    });
+  }
+
+  function connectToServer() {
+    WebSocketClient.connect(
+      isPlayerMode,
+      selectedCharacter,
+      handleInit,
+      handleState,
+      handleEvent,
+      handleDisconnect
+    );
+  }
 
   async function init() {
     console.log(`Initializing in ${isPlayerMode ? "player" : "spectator"} mode...`);
@@ -42,14 +77,13 @@
     playerBlobIndex = -1;
     Interpolator.reset();
 
-    // Connect to server
-    WebSocketClient.connect(
-      isPlayerMode,
-      handleInit,
-      handleState,
-      handleEvent,
-      handleDisconnect
-    );
+    // In player mode, wait for character selection before connecting
+    if (isPlayerMode) {
+      setupCharacterSelection();
+    } else {
+      // Spectator mode: connect immediately
+      connectToServer();
+    }
 
     // Start render loop only once
     if (!initialized) {

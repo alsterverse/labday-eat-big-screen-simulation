@@ -196,6 +196,11 @@ const Renderer = (function () {
       loadTexture("blob3", "assets/blob3.png"),
       loadTexture("food", "assets/food.png"),
       loadTexture("trophy", "assets/trophy.png"),
+      // Player character textures
+      loadTexture("player_mats", "assets/players/mats.png"),
+      loadTexture("player_krille", "assets/players/krille.png"),
+      loadTexture("player_tommi", "assets/players/tommi.png"),
+      loadTexture("player_per", "assets/players/per.png"),
     ]);
 
     for (let i = 0; i < 20; i++) {
@@ -460,7 +465,14 @@ const Renderer = (function () {
       if (!blob.alive) continue;
 
       const screen = worldToScreen(blob.x, blob.y);
-      const texName = i === 0 ? "blob1" : i === 1 ? "blob2" : "blob3";
+
+      // Use player character texture if available, otherwise fallback to blob textures
+      let texName;
+      if (blob.character) {
+        texName = `player_${blob.character}`;
+      } else {
+        texName = i === 0 ? "blob1" : i === 1 ? "blob2" : "blob3";
+      }
 
       while (blobAnimations.length <= i) {
         blobAnimations.push({ scale: 1.0, bounceTime: 0 });

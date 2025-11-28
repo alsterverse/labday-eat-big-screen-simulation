@@ -127,16 +127,20 @@ class GameServer {
   }
 
   resetGame() {
-    const playerClientIds = Array.from(this.players.keys());
+    // Save player characters before clearing
+    const playerData = Array.from(this.players.entries()).map(([clientId, data]) => ({
+      clientId,
+      character: data.character,
+    }));
 
     this.game.reset();
     this.done = false;
     this.resetTimer = null;
 
-    // Re-add all connected players
+    // Re-add all connected players with their characters
     this.players.clear();
-    for (const clientId of playerClientIds) {
-      this.addPlayerInternal(clientId);
+    for (const { clientId, character } of playerData) {
+      this.addPlayerInternal(clientId, character);
     }
 
     // Broadcast reset event
@@ -154,24 +158,24 @@ class GameServer {
     );
   }
 
-  addPlayerInternal(clientId) {
+  addPlayerInternal(clientId, character) {
     const blobIndex = this.game.addBlob();
-    this.players.set(clientId, { blobIndex, lastAction: null });
+    this.players.set(clientId, { blobIndex, lastAction: null, character });
     return blobIndex;
   }
 
-  addPlayer(clientId) {
+  addPlayer(clientId, character) {
     if (this.players.has(clientId)) {
       return this.players.get(clientId).blobIndex;
     }
 
-    const blobIndex = this.addPlayerInternal(clientId);
+    const blobIndex = this.addPlayerInternal(clientId, character);
     console.log(
-      `Player ${clientId} joined as blob ${blobIndex} (total: ${this.game.getBlobCount()})`
+      `Player ${clientId} (${character}) joined as blob ${blobIndex} (total: ${this.game.getBlobCount()})`
     );
 
     if (this.onEvent) {
-      this.onEvent({ type: "playerJoined", clientId, blobIndex });
+      this.onEvent({ type: "playerJoined", clientId, blobIndex, character });
     }
 
     return blobIndex;
@@ -271,9 +275,21 @@ class GameServer {
   getStateForBroadcast() {
     const state = this.game.getState();
     const stats = this.game.getStats();
+
+    // Add character info to blobs
+    const blobsWithCharacter = state.blobs.map((blob, index) => {
+      // Find player with this blob index
+      for (const [, player] of this.players) {
+        if (player.blobIndex === index) {
+          return { ...blob, character: player.character };
+        }
+      }
+      return blob;
+    });
+
     return {
       timestamp: Date.now(),
-      blobs: state.blobs,
+      blobs: blobsWithCharacter,
       foods: state.foods,
       mapSize: state.mapSize,
       agentRadius: state.agentRadius,

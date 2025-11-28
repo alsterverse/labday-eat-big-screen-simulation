@@ -8,14 +8,19 @@ const WebSocketClient = (function () {
   let blobIndex = -1;
   let callbacks = {};
   let reconnectAttempts = 0;
+  let currentCharacter = null;
   const MAX_RECONNECT_ATTEMPTS = 5;
   const RECONNECT_DELAY = 2000;
 
-  function connect(isPlayerMode, onInit, onState, onEvent, onDisconnect) {
+  function connect(isPlayerMode, character, onInit, onState, onEvent, onDisconnect) {
     callbacks = { onInit, onState, onEvent, onDisconnect };
+    currentCharacter = character;
 
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    const path = isPlayerMode ? "/ws/play" : "/ws/";
+    let path = isPlayerMode ? "/ws/play" : "/ws/";
+    if (character) {
+      path += `?character=${encodeURIComponent(character)}`;
+    }
     const wsUrl = `${protocol}//${location.host}${path}`;
 
     console.log("Connecting to:", wsUrl);
@@ -47,7 +52,7 @@ const WebSocketClient = (function () {
         reconnectAttempts++;
         console.log(`Reconnecting in ${RECONNECT_DELAY}ms (attempt ${reconnectAttempts})...`);
         setTimeout(() => {
-          connect(isPlayerMode, onInit, onState, onEvent, onDisconnect);
+          connect(isPlayerMode, currentCharacter, onInit, onState, onEvent, onDisconnect);
         }, RECONNECT_DELAY);
       }
     };
