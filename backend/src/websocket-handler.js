@@ -10,7 +10,7 @@ function generateClientId() {
   return `client_${++clientIdCounter}_${Date.now().toString(36)}`;
 }
 
-const MAX_PLAYERS = 20; // Maximum number of players allowed
+const MAX_PLAYERS = 100; // Maximum number of players allowed
 const CONNECTION_RATE_LIMIT = 2000; // 2 seconds between connections from same client
 const activeTokens = new Set(); // Track active session tokens to prevent duplicate joins
 const tokenConnectionTimes = new Map(); // token -> last connection timestamp
