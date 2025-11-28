@@ -44,15 +44,12 @@ deactivate
 
 ## Project Structure
 
-This repository contains multiple reinforcement learning environments and demos:
-
 - **blob_compete/** - Competitive blob environment with DQN training
-- **blob_harvest/** - Blob harvest environment
-- **cartpole/** - CartPole environment with DQN implementation and interactive demos
+- **assets/** - Game assets (images, etc.)
 - **venv/** - Python virtual environment (excluded from git)
 
 ## Important Notes
 
 - Always ensure the virtual environment is activated before running Python scripts
 - The `venv/` directory is excluded from version control via `.gitignore`
-- Model files (`.pth`, `.pkl`) and training outputs (`.png`, `.jpg`) are also gitignored
+- Model files (`.pth`, `.pkl`) are gitignored
