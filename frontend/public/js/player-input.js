@@ -7,6 +7,14 @@ const PlayerInput = (function () {
   let onActionCallback = null;
   let actionInterval = null;
   let lastAction = null;
+  let isMobile = false;
+
+  // Detect if device is mobile
+  function detectMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           ('ontouchstart' in window) ||
+           (navigator.maxTouchPoints > 0);
+  }
 
   function handleKeyDown(e) {
     if (e.code === "KeyA") {
@@ -22,6 +30,38 @@ const PlayerInput = (function () {
     } else if (e.code === "KeyD") {
       keys.right = false;
     }
+  }
+
+  function handleTouchStart(e) {
+    if (!isMobile) return;
+
+    for (let i = 0; i < e.touches.length; i++) {
+      const touch = e.touches[i];
+      const canvas = document.getElementById('game-canvas');
+      const rect = canvas.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const centerX = rect.width / 2;
+
+      if (x < centerX) {
+        keys.left = true;
+        keys.right = false;
+      } else {
+        keys.right = true;
+        keys.left = false;
+      }
+    }
+    e.preventDefault();
+  }
+
+  function handleTouchEnd(e) {
+    if (!isMobile) return;
+
+    // If no touches remain, stop turning
+    if (e.touches.length === 0) {
+      keys.left = false;
+      keys.right = false;
+    }
+    e.preventDefault();
   }
 
   function sendAction() {
@@ -42,20 +82,38 @@ const PlayerInput = (function () {
   }
 
   function activate(callback) {
+    isMobile = detectMobile();
     onActionCallback = callback;
     keys = { left: false, right: false };
     lastAction = null;
 
-    document.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("keyup", handleKeyUp);
+    if (isMobile) {
+      // Touch controls for mobile
+      const canvas = document.getElementById('game-canvas');
+      canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
+      canvas.addEventListener("touchend", handleTouchEnd, { passive: false });
+      canvas.addEventListener("touchmove", handleTouchStart, { passive: false });
+    } else {
+      // Keyboard controls for desktop
+      document.addEventListener("keydown", handleKeyDown);
+      document.addEventListener("keyup", handleKeyUp);
+    }
 
     // Send actions at 30Hz
     actionInterval = setInterval(sendAction, 1000 / 30);
   }
 
   function deactivate() {
-    document.removeEventListener("keydown", handleKeyDown);
-    document.removeEventListener("keyup", handleKeyUp);
+    const canvas = document.getElementById('game-canvas');
+
+    if (isMobile) {
+      canvas.removeEventListener("touchstart", handleTouchStart);
+      canvas.removeEventListener("touchend", handleTouchEnd);
+      canvas.removeEventListener("touchmove", handleTouchStart);
+    } else {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keyup", handleKeyUp);
+    }
 
     if (actionInterval) {
       clearInterval(actionInterval);
@@ -66,8 +124,13 @@ const PlayerInput = (function () {
     onActionCallback = null;
   }
 
+  function isMobileDevice() {
+    return isMobile;
+  }
+
   return {
     activate,
     deactivate,
+    isMobileDevice,
   };
 })();

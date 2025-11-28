@@ -17,6 +17,7 @@ const UI = (function () {
       playerFoods: document.getElementById("player-foods"),
       connectionStatus: document.getElementById("connection-status"),
       modeToggle: document.getElementById("mode-toggle"),
+      topPlayersList: document.getElementById("top-players-list"),
     };
   }
 
@@ -71,6 +72,29 @@ const UI = (function () {
         `;
       });
       elements.leaderboard.innerHTML = leaderboardHTML;
+
+      // Update top 3 players for mobile overlay
+      if (elements.topPlayersList) {
+        const top3 = sorted.slice(0, 3);
+        let top3HTML = '';
+        top3.forEach((blob, rank) => {
+          const rankClass = rank === 0 ? 'first' : rank === 1 ? 'second' : 'third';
+          const rankLabel = rank === 0 ? '🥇' : rank === 1 ? '🥈' : '🥉';
+
+          top3HTML += `
+            <div class="top-player">
+              <span class="top-player-rank ${rankClass}">${rankLabel}</span>
+              <img src="${blob.icon}" class="top-player-icon" alt="${blob.name}">
+              <span class="top-player-name">${blob.name}</span>
+              <span class="top-player-food">
+                <img src="assets/food.png" class="top-player-food-icon" alt="food">
+                ${blob.foods}
+              </span>
+            </div>
+          `;
+        });
+        elements.topPlayersList.innerHTML = top3HTML;
+      }
     }
 
     if (elements.playerSection && playerBlobIndex !== -1 && stats.blobs[playerBlobIndex]) {
