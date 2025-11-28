@@ -1,57 +1,48 @@
 /**
- * Game State & Physics Engine
- * Port of blob_env.py to JavaScript
+ * Game State & Physics Engine (Server Version)
+ * Port of blob_env.py to JavaScript, adapted for Node.js
  */
 
-const Game = (function () {
-  // Game constants (matching Python environment)
-  // Base rates are per-step at 30 Hz, we scale by dt
-  const MAP_SIZE = 100.0;
-  const AGENT_RADIUS = 2.5;
-  const INITIAL_MASS = 5.0;
-  const BASE_MASS_DECAY = 0.05 * 30; // per second (0.05 per step * 30 steps/sec)
-  const BASE_SPEED = 1.2 * 30; // per second
-  const BASE_TURN_RATE = 0.12 * 30; // per second
-  const FOOD_GAIN = 1.5;
-  const MIN_MASS = 0.5;
-  const MAX_FOODS = 10;
-  const MAX_STEPS = 2000;
+// Game constants (matching Python environment)
+const MAP_SIZE = 100.0;
+const AGENT_RADIUS = 2.5;
+const INITIAL_MASS = 5.0;
+const BASE_MASS_DECAY = 0.05 * 30; // per second
+const BASE_SPEED = 1.2 * 30; // per second
+const BASE_TURN_RATE = 0.12 * 30; // per second
+const FOOD_GAIN = 1.5;
+const MIN_MASS = 0.5;
+const MAX_FOODS = 10;
+const MAX_STEPS = 2000;
 
+/**
+ * Create a new Game instance
+ */
+function createGame() {
   // Game state
   let blobs = [];
   let foods = [];
   let steps = 0;
   let episode = 1;
-  let wins = [0, 0, 0]; // Support up to 3 blobs
+  let wins = [0, 0, 0]; // Support up to 3+ blobs
   let terminated = false;
   let winner = null;
+  let playerActions = new Map(); // Buffer for player actions
 
-  /**
-   * Normalize angle to [-PI, PI]
-   */
   function normalizeAngle(angle) {
     return Math.atan2(Math.sin(angle), Math.cos(angle));
   }
 
-  /**
-   * Calculate distance between two points
-   */
   function distance(a, b) {
     const dx = a.x - b.x;
     const dy = a.y - b.y;
     return Math.sqrt(dx * dx + dy * dy);
   }
 
-  /**
-   * Calculate angle from point a to point b
-   */
   function angleTo(a, b) {
     return Math.atan2(b.y - a.y, b.x - a.x);
   }
 
-  /**
-   * Spawn a food pellet at random position
-   */
   function spawnFood() {
     const margin = 5;
     return {
@@ -60,9 +51,6 @@ const Game = (function () {
     };
   }
 
-  /**
-   * Create a new blob at a random position
-   */
   function createBlob() {
     const margin = 10;
     return {
@@ -75,9 +63,6 @@ const Game = (function () {
     };
   }
 
-  /**
-   * Initialize/reset the game state
-   */
   function reset() {
     // Reset to 2 AI blobs
     blobs = [createBlob(), createBlob()];
@@ -91,42 +76,41 @@ const Game = (function () {
     steps = 0;
     terminated = false;
     winner = null;
+    playerActions.clear();
 
     return {
       observations: blobs.map((_, i) => getObservation(i)),
     };
   }
 
-  /**
-   * Add a new blob (e.g., player blob)
-   * @returns {number} The index of the new blob
-   */
   function addBlob() {
     const blob = createBlob();
     blobs.push(blob);
     return blobs.length - 1;
   }
 
-  /**
-   * Remove a blob by index
-   * @param {number} blobId - Index of blob to remove
-   */
   function removeBlob(blobId) {
     if (blobId >= 0 && blobId < blobs.length) {
       blobs.splice(blobId, 1);
+      // Clear any buffered action for this blob
+      playerActions.delete(blobId);
+      // Reindex remaining player actions
+      const newActions = new Map();
+      for (const [idx, action] of playerActions) {
+        if (idx > blobId) {
+          newActions.set(idx - 1, action);
+        } else {
+          newActions.set(idx, action);
+        }
+      }
+      playerActions = newActions;
     }
   }
 
-  /**
-   * Get the number of blobs
-   */
   function getBlobCount() {
     return blobs.length;
   }
 
-  /**
-   * Get observation for a specific blob (8 features)
-   */
   function getObservation(blobId) {
     const blob = blobs[blobId];
     if (!blob) return [0, 0, 0, 0, 1, 0, 1, 0];
@@ -168,23 +152,31 @@ const Game = (function () {
     }
 
     return [
-      blob.x / MAP_SIZE, // 0: normalized x position
-      blob.y / MAP_SIZE, // 1: normalized y position
-      blob.angle, // 2: heading angle (-PI to PI)
-      blob.mass / 10.0, // 3: normalized mass
-      distToOther, // 4: normalized distance to nearest opponent
-      angleToOther, // 5: relative angle to nearest opponent
-      distToFood, // 6: normalized distance to nearest food
-      angleToFood, // 7: relative angle to nearest food
+      blob.x / MAP_SIZE,
+      blob.y / MAP_SIZE,
+      blob.angle,
+      blob.mass / 10.0,
+      distToOther,
+      angleToOther,
+      distToFood,
+      angleToFood,
     ];
   }
 
   /**
-   * Execute one simulation step with delta time
-   * @param {number[]} actions - Actions for each blob (0=left, 1=right)
-   * @param {number} dt - Delta time in seconds
-   * @returns {object} Step result with observations, rewards, events
+   * Set a player's action for the next step
    */
+  function setPlayerAction(blobId, action) {
+    playerActions.set(blobId, action);
+  }
+
+  /**
+   * Get the buffered action for a blob
+   */
+  function getPlayerAction(blobId) {
+    return playerActions.get(blobId);
+  }
+
   function step(actions, dt) {
     if (terminated) {
       return {
@@ -197,7 +189,6 @@ const Game = (function () {
 
     const events = [];
 
-    // Scale physics by delta time
     const turnRate = BASE_TURN_RATE * dt;
     const speed = BASE_SPEED * dt;
     const massDecay = BASE_MASS_DECAY * dt;
@@ -209,7 +200,6 @@ const Game = (function () {
 
       const action = actions[i];
 
-      // Apply steering (action 0 = add angle, action 1 = subtract)
       if (action === 0) {
         blob.angle += turnRate;
       } else {
@@ -217,17 +207,14 @@ const Game = (function () {
       }
       blob.angle = normalizeAngle(blob.angle);
 
-      // Move forward
       blob.x += Math.cos(blob.angle) * speed;
       blob.y += Math.sin(blob.angle) * speed;
 
-      // Wrap around edges (toroidal world)
       if (blob.x < 0) blob.x += MAP_SIZE;
       if (blob.x >= MAP_SIZE) blob.x -= MAP_SIZE;
       if (blob.y < 0) blob.y += MAP_SIZE;
       if (blob.y >= MAP_SIZE) blob.y -= MAP_SIZE;
 
-      // Mass decay
       blob.mass -= massDecay;
     }
 
@@ -239,19 +226,16 @@ const Game = (function () {
         const blob = blobs[j];
         if (!blob.alive) continue;
         if (distance(blob, food) < foodCollisionRadius) {
-          // Blob collected food
           blob.mass += FOOD_GAIN;
           blob.foodsCollected++;
           events.push({ type: "foodCollected", blobId: j, food: { ...food } });
-          // Replace food
           foods[i] = spawnFood();
           break;
         }
       }
     }
 
-    // Initialize rewards
-    let rewards = blobs.map((b) => (b.alive ? 0.01 : 0)); // Base survival reward
+    let rewards = blobs.map((b) => (b.alive ? 0.01 : 0));
 
     // Check for death
     for (let i = 0; i < blobs.length; i++) {
@@ -260,7 +244,7 @@ const Game = (function () {
         events.push({ type: "death", blobId: i });
         rewards[i] = 0;
 
-        // Check if only one blob remains (AI blobs only for win counting)
+        // Check if only one AI blob remains (first 2 are AI)
         const aliveAIBlobs = blobs.slice(0, 2).filter((b) => b.alive);
         if (aliveAIBlobs.length === 1) {
           const winnerIdx = blobs.slice(0, 2).findIndex((b) => b.alive);
@@ -269,10 +253,9 @@ const Game = (function () {
             winner = winnerIdx;
             wins[winner]++;
             episode++;
-            rewards[winnerIdx] = 1; // Winner bonus
+            rewards[winnerIdx] = 1;
           }
         } else if (aliveAIBlobs.length === 0) {
-          // Both AI blobs dead
           terminated = true;
           winner = null;
           episode++;
@@ -280,7 +263,6 @@ const Game = (function () {
       }
     }
 
-    // Add food collection rewards
     for (const event of events) {
       if (event.type === "foodCollected") {
         rewards[event.blobId] += 5.0;
@@ -289,11 +271,10 @@ const Game = (function () {
 
     steps++;
 
-    // Check for timeout (truncation)
     const truncated = steps >= MAX_STEPS;
     if (truncated && !terminated) {
       terminated = true;
-      winner = null; // Draw
+      winner = null;
       episode++;
     }
 
@@ -306,9 +287,6 @@ const Game = (function () {
     };
   }
 
-  /**
-   * Get current game state for rendering
-   */
   function getState() {
     return {
       blobs: blobs.map((b) => ({ ...b })),
@@ -318,9 +296,6 @@ const Game = (function () {
     };
   }
 
-  /**
-   * Get statistics for UI
-   */
   function getStats() {
     return {
       episode: episode,
@@ -330,24 +305,45 @@ const Game = (function () {
       blobs: blobs.map((b) => ({
         mass: b.mass,
         foodsCollected: b.foodsCollected,
+        alive: b.alive,
       })),
       terminated: terminated,
       winner: winner,
     };
   }
 
-  // Export public API
+  /**
+   * Get full serializable state for WebSocket transmission
+   */
+  function getFullState() {
+    return {
+      state: getState(),
+      stats: getStats(),
+    };
+  }
+
   return {
     reset,
     step,
     getObservation,
     getState,
     getStats,
+    getFullState,
     addBlob,
     removeBlob,
     getBlobCount,
+    setPlayerAction,
+    getPlayerAction,
     MAP_SIZE,
     AGENT_RADIUS,
     INITIAL_MASS,
   };
-})();
+}
+
+module.exports = {
+  createGame,
+  MAP_SIZE,
+  AGENT_RADIUS,
+  INITIAL_MASS,
+  MAX_STEPS,
+};

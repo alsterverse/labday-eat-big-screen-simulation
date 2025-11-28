@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blob Compete - Play</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #111;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+      display: flex;
+      height: 100vh;
+    }
+
+    #game-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    #game-canvas {
+      background: #000;
+      border: 2px solid #444;
+    }
+
+    #stats-panel {
+      width: 280px;
+      background: #1a1a1a;
+      padding: 20px;
+      border-left: 2px solid #333;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    #episode {
+      font-size: 28px;
+      font-weight: bold;
+      text-align: center;
+      color: #fff;
+    }
+
+    #steps {
+      text-align: center;
+      color: #888;
+      font-size: 14px;
+    }
+
+    .section {
+      background: #222;
+      padding: 15px;
+      border-radius: 8px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .blob-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .blob-icon {
+      width: 24px;
+      height: 24px;
+    }
+
+    .blob1-color { color: #3278dc; }
+    .blob2-color { color: #dc3232; }
+    .player-color { color: #32dc64; }
+
+    .win-count {
+      font-size: 24px;
+      font-weight: bold;
+      min-width: 40px;
+    }
+
+    .trophies {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      flex: 1;
+    }
+
+    .trophy {
+      width: 16px;
+      height: 16px;
+    }
+
+    .trophy-overflow {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .blob-stats {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .stat-label {
+      color: #666;
+      font-size: 12px;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .status {
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      padding: 10px;
+      border-radius: 5px;
+      background: #333;
+    }
+
+    .status.competing {
+      color: #32dc32;
+    }
+
+    .mode-indicator {
+      text-align: center;
+      font-size: 16px;
+      font-weight: bold;
+      padding: 10px;
+      border-radius: 5px;
+      background: #222;
+      margin-top: 10px;
+    }
+
+    .connection-status {
+      text-align: center;
+      font-size: 12px;
+      padding: 5px;
+      border-radius: 3px;
+      margin-top: 5px;
+    }
+
+    .connection-status.connected {
+      color: #32dc32;
+      background: rgba(50, 220, 50, 0.1);
+    }
+
+    .connection-status.disconnected {
+      color: #dc3232;
+      background: rgba(220, 50, 50, 0.1);
+    }
+
+    #controls {
+      margin-top: auto;
+      text-align: center;
+      color: #555;
+      font-size: 12px;
+      line-height: 1.8;
+    }
+
+    .control-group {
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #333;
+    }
+
+    .control-group:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+
+    .control-title {
+      color: #888;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 5px;
+    }
+
+    #controls kbd {
+      background: #333;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+
+    .spectate-link {
+      display: block;
+      margin-top: 15px;
+      padding: 8px;
+      background: #333;
+      color: #aaa;
+      text-decoration: none;
+      border-radius: 5px;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .spectate-link:hover {
+      background: #444;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game-canvas" width="900" height="800"></canvas>
+  </div>
+
+  <div id="stats-panel">
+    <div id="episode">Episode 1</div>
+    <div id="steps">Step: 0 / 2000</div>
+
+    <div class="section">
+      <div class="section-title">Wins</div>
+      <div class="blob-row">
+        <img src="assets/blob1.png" class="blob-icon" alt="Blob 1">
+        <span id="blob1-wins" class="win-count blob1-color">0</span>
+        <div id="blob1-trophies" class="trophies"></div>
+      </div>
+      <div class="blob-row">
+        <img src="assets/blob2.png" class="blob-icon" alt="Blob 2">
+        <span id="blob2-wins" class="win-count blob2-color">0</span>
+        <div id="blob2-trophies" class="trophies"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Blob 1</div>
+      <div class="blob-stats">
+        <div>
+          <div class="stat-label">Mass</div>
+          <div id="blob1-mass" class="stat-value blob1-color">5.00</div>
+        </div>
+        <div>
+          <div class="stat-label">Foods</div>
+          <div id="blob1-foods" class="stat-value">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Blob 2</div>
+      <div class="blob-stats">
+        <div>
+          <div class="stat-label">Mass</div>
+          <div id="blob2-mass" class="stat-value blob2-color">5.00</div>
+        </div>
+        <div>
+          <div class="stat-label">Foods</div>
+          <div id="blob2-foods" class="stat-value">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="player-section" class="section" style="display: none;">
+      <div class="section-title player-color">You</div>
+      <div class="blob-stats">
+        <div>
+          <div class="stat-label">Mass</div>
+          <div id="player-mass" class="stat-value player-color">5.00</div>
+        </div>
+        <div>
+          <div class="stat-label">Foods</div>
+          <div id="player-foods" class="stat-value">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="status" class="status competing">COMPETING...</div>
+
+    <div id="mode-indicator" class="mode-indicator player-color">Playing</div>
+    <div id="connection-status" class="connection-status disconnected">Connecting...</div>
+
+    <div id="controls">
+      <div class="control-group">
+        <div class="control-title">Player Controls</div>
+        <kbd>A</kbd> Turn Left &nbsp; <kbd>D</kbd> Turn Right
+      </div>
+      <a href="/" class="spectate-link">Switch to Spectator</a>
+    </div>
+  </div>
+
+  <script src="js/renderer.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/websocket-client.js"></script>
+  <script src="js/interpolator.js"></script>
+  <script src="js/player-input.js"></script>
+  <script src="js/client-main.js"></script>
+</body>
+</html>

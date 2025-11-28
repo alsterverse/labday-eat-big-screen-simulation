@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blob Compete - WebGL Demo</title>
+  <title>Blob Compete - Spectator</title>
   <style>
     * {
       margin: 0;
@@ -31,20 +31,6 @@
     #game-canvas {
       background: #000;
       border: 2px solid #444;
-    }
-
-    #pause-indicator {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.8);
-      padding: 20px 40px;
-      border-radius: 10px;
-      font-size: 32px;
-      font-weight: bold;
-      display: none;
-      z-index: 100;
     }
 
     #stats-panel {
@@ -162,6 +148,24 @@
       margin-top: 10px;
     }
 
+    .connection-status {
+      text-align: center;
+      font-size: 12px;
+      padding: 5px;
+      border-radius: 3px;
+      margin-top: 5px;
+    }
+
+    .connection-status.connected {
+      color: #32dc32;
+      background: rgba(50, 220, 50, 0.1);
+    }
+
+    .connection-status.disconnected {
+      color: #dc3232;
+      background: rgba(220, 50, 50, 0.1);
+    }
+
     #controls {
       margin-top: auto;
       text-align: center;
@@ -170,37 +174,26 @@
       line-height: 1.8;
     }
 
-    .control-group {
-      margin-bottom: 12px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #333;
+    .join-link {
+      display: block;
+      margin-top: 15px;
+      padding: 10px;
+      background: #32dc64;
+      color: #000;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+      text-align: center;
     }
 
-    .control-group:last-child {
-      border-bottom: none;
-      margin-bottom: 0;
-    }
-
-    .control-title {
-      color: #888;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 5px;
-    }
-
-    #controls kbd {
-      background: #333;
-      padding: 2px 8px;
-      border-radius: 3px;
-      font-family: monospace;
+    .join-link:hover {
+      background: #28b854;
     }
   </style>
 </head>
 <body>
   <div id="game-container">
     <canvas id="game-canvas" width="900" height="800"></canvas>
-    <div id="pause-indicator">PAUSED</div>
   </div>
 
   <div id="stats-panel">
@@ -266,26 +259,18 @@
     <div id="status" class="status competing">COMPETING...</div>
 
     <div id="mode-indicator" class="mode-indicator">Spectator Mode</div>
+    <div id="connection-status" class="connection-status disconnected">Disconnected</div>
 
     <div id="controls">
-      <div class="control-group">
-        <div class="control-title">Player Controls</div>
-        <kbd>A</kbd> Turn Left &nbsp; <kbd>D</kbd> Turn Right
-      </div>
-      <div class="control-group">
-        <div class="control-title">Game</div>
-        <kbd>J</kbd> Join / Leave<br>
-        <kbd>R</kbd> Reset &nbsp; <kbd>SPACE</kbd> Pause
-      </div>
+      <a href="/play" class="join-link">Join as Player</a>
     </div>
   </div>
 
-  <!-- Scripts (order matters) -->
-  <script src="dqn.js"></script>
-  <script src="game.js"></script>
-  <script src="renderer.js"></script>
-  <script src="ui.js"></script>
-  <script src="controller.js"></script>
-  <script src="main.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/websocket-client.js"></script>
+  <script src="js/interpolator.js"></script>
+  <script src="js/player-input.js"></script>
+  <script src="js/client-main.js"></script>
 </body>
 </html>
