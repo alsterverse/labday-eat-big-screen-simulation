@@ -8,9 +8,18 @@ venv/
 env/
 ENV/
 
-# Model files
+# Model files (PyTorch)
 *.pth
 *.pkl
+
+# Keep numpy weight files for web deployment
+!*_weights.npz
+
+# Pygbag build output
+blob_compete/build/
+
+# Training output images
+*.png
 
 # IDE
 .vscode/
