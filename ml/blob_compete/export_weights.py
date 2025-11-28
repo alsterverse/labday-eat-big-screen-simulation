@@ -36,6 +36,6 @@ def export_model(model_path: str, output_path: str, state_size: int = 8, action_
 
 
 if __name__ == "__main__":
-    export_model('blob_compete/blob1_model.pth', 'blob_compete/blob1_weights.npz')
-    export_model('blob_compete/blob2_model.pth', 'blob_compete/blob2_weights.npz')
+    export_model('blob1_model.pth', 'blob1_weights.npz')
+    export_model('blob2_model.pth', 'blob2_weights.npz')
     print("All models exported successfully!")

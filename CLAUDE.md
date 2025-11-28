@@ -44,7 +44,7 @@ deactivate
 
 ## Project Structure
 
-- **blob_compete/** - Python competitive blob environment with DQN training
+- **ml/blob_compete/** - Python competitive blob environment with DQN training
 - **blob_compete_js/** - JavaScript/Node.js version with WebSocket multiplayer
 - **venv/** - Python virtual environment (excluded from git)
 
