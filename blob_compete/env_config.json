@@ -1,0 +1,14 @@
+{
+  "state_size": 8,
+  "action_size": 2,
+  "map_size": 100.0,
+  "agent_radius": 2.5,
+  "initial_mass": 5.0,
+  "min_mass": 0.5,
+  "mass_decay_rate": 0.05,
+  "mass_steal_rate": 0.15,
+  "food_mass_gain": 1.5,
+  "movement_speed": 1.2,
+  "turn_rate": 0.12,
+  "max_foods": 10
+}
