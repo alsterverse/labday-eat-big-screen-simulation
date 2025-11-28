@@ -371,13 +371,17 @@ const ModelRenderer = (function () {
     const baseRotation = mat4FromRotationZ(Math.PI / 2);
     const yRotation = mat4FromRotationY(yAngle);
     const xRotation = mat4FromRotationX(isoTilt);
-    const spinRotation = mat4FromRotationX(spinAngle);
+    const spinRotationX = mat4FromRotationX(spinAngle * 1.0);
+    const spinRotationY = mat4FromRotationY(spinAngle * 0.25);
+    const spinRotationZ = mat4FromRotationZ(spinAngle * 0.1);
     const scaleMatrix = mat4FromScaling(s, s, s);
     const translateMatrix = mat4FromTranslation(ndcX, ndcY, 0);
 
-    // Combine: translate * scale * Rx * Ry * spin * Rz_base
+    // Combine: translate * scale * Rx * Ry * spinZ * spinX * Rz_base
     let rotatedMatrix = mat4Create();
-    mat4Multiply(rotatedMatrix, spinRotation, baseRotation);
+    mat4Multiply(rotatedMatrix, spinRotationX, baseRotation);
+    mat4Multiply(rotatedMatrix, spinRotationY, rotatedMatrix);
+    mat4Multiply(rotatedMatrix, spinRotationZ, rotatedMatrix);
     mat4Multiply(rotatedMatrix, yRotation, rotatedMatrix);
     mat4Multiply(rotatedMatrix, xRotation, rotatedMatrix);
     mat4Multiply(rotatedMatrix, scaleMatrix, rotatedMatrix);
