@@ -47,6 +47,12 @@ const ModelRenderer = (function () {
 
     out vec4 outColor;
 
+    vec3 adjustSaturation(vec3 color, float saturationMultiplier) {
+      float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
+      vec3 gray = vec3(luminance);
+      return mix(gray, color, saturationMultiplier);
+    }
+
     void main() {
       vec3 normal = normalize(v_normal);
       vec3 lightDir = normalize(u_lightDir);
@@ -61,7 +67,10 @@ const ModelRenderer = (function () {
       vec3 ambient = u_ambientColor * baseColor.rgb;
       vec3 diffuse = u_lightColor * diff * baseColor.rgb;
 
-      outColor = vec4(ambient + diffuse, baseColor.a);
+      vec3 finalColor = ambient + diffuse;
+      finalColor = adjustSaturation(finalColor, 1.5);
+
+      outColor = vec4(finalColor, baseColor.a);
     }
   `;
 
