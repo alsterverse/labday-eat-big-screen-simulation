@@ -177,6 +177,8 @@ const Renderer = (function () {
     particleProgram = createProgram(particleVertexShader, particleFragmentShader);
     solidProgram = createProgram(solidVertexShader, solidFragmentShader);
 
+    ModelRenderer.init(gl);
+
     const quadVertices = new Float32Array([
       -0.5, -0.5, 0, 1,
        0.5, -0.5, 1, 1,
@@ -196,11 +198,12 @@ const Renderer = (function () {
       loadTexture("blob3", "assets/blob3.png"),
       loadTexture("food", "assets/food.png"),
       loadTexture("trophy", "assets/trophy.png"),
-      // Player character textures
       loadTexture("player_mats", "assets/players/mats.png"),
       loadTexture("player_krille", "assets/players/krille.png"),
       loadTexture("player_tommi", "assets/players/tommi.png"),
       loadTexture("player_per", "assets/players/per.png"),
+      loadTexture("player_linda", "assets/players/linda.png"),
+      ModelRenderer.loadModel("linda", "assets/linda.glb"),
     ]);
 
     for (let i = 0; i < 20; i++) {
@@ -466,14 +469,6 @@ const Renderer = (function () {
 
       const screen = worldToScreen(blob.x, blob.y);
 
-      // Use player character texture if available, otherwise fallback to blob textures
-      let texName;
-      if (blob.character) {
-        texName = `player_${blob.character}`;
-      } else {
-        texName = i === 0 ? "blob1" : i === 1 ? "blob2" : "blob3";
-      }
-
       while (blobAnimations.length <= i) {
         blobAnimations.push({ scale: 1.0, bounceTime: 0 });
       }
@@ -483,13 +478,25 @@ const Renderer = (function () {
       const animScale = blobAnimations[i].scale;
       const size = Math.max(10, baseSize * massScale * animScale);
 
-      let rotation = blob.angle;
-      const flipY = Math.abs(blob.angle) > Math.PI / 2;
-      if (flipY) {
-        rotation = Math.PI - rotation;
-      }
+      if (blob.character === "linda" && ModelRenderer.isLoaded("linda")) {
+        const modelScale = size * 1.0;
+        ModelRenderer.render("linda", screen.x, screen.y, modelScale, blob.angle, viewportWidth, viewportHeight);
+      } else {
+        let texName;
+        if (blob.character) {
+          texName = `player_${blob.character}`;
+        } else {
+          texName = i === 0 ? "blob1" : i === 1 ? "blob2" : "blob3";
+        }
 
-      drawSprite(texName, screen.x, screen.y, size, rotation, flipY);
+        let rotation = blob.angle;
+        const flipY = Math.abs(blob.angle) > Math.PI / 2;
+        if (flipY) {
+          rotation = Math.PI - rotation;
+        }
+
+        drawSprite(texName, screen.x, screen.y, size, rotation, flipY);
+      }
     }
 
     // Draw player indicator arrow
