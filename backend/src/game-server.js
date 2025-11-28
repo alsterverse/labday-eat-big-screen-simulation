@@ -154,7 +154,8 @@ class GameServer {
   }
 
   addPlayerInternal(clientId, character) {
-    const blobIndex = this.game.addBlob();
+    const blobIndex = this.game.addBlob(false); // false = not AI controlled
+    this.game.setBlobCharacter(blobIndex, character);
     this.players.set(clientId, { blobIndex, lastAction: null, character });
     return blobIndex;
   }
