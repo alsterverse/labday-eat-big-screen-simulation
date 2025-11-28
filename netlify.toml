@@ -1,6 +1,11 @@
 [build]
-  publish = "web"
-  command = "echo 'No build needed - static files only'"
+  base = "web"
+  publish = "."
+  command = ""
+  ignore = "exit 0"
+
+[build.environment]
+  NODE_VERSION = "18"
 
 [[headers]]
   for = "/*"
