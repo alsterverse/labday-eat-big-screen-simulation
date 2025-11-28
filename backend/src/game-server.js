@@ -27,6 +27,8 @@ class GameServer {
     this.players = new Map(); // clientId -> { blobIndex, lastAction }
     this.onBroadcast = null; // Callback for broadcasting state
     this.onEvent = null; // Callback for game events
+    this.onKickInactivePlayers = null; // Callback for kicking inactive players
+    this.playersWithTurningActions = new Set(); // clientIds who have turned this episode
 
     this.lastTick = Date.now();
     this.lastBroadcast = Date.now();
@@ -153,6 +155,22 @@ class GameServer {
   }
 
   resetGame() {
+    // Identify inactive players (those who never made a turning action)
+    const inactivePlayers = [];
+    for (const [clientId] of this.players) {
+      if (!this.playersWithTurningActions.has(clientId)) {
+        inactivePlayers.push(clientId);
+      }
+    }
+
+    // Kick inactive players before reset
+    if (inactivePlayers.length > 0 && this.onKickInactivePlayers) {
+      this.onKickInactivePlayers(inactivePlayers);
+    }
+
+    // Clear tracking for new episode
+    this.playersWithTurningActions.clear();
+
     // Save player characters before clearing
     const playerData = Array.from(this.players.entries()).map(([clientId, data]) => ({
       clientId,
@@ -291,6 +309,11 @@ class GameServer {
     if (player) {
       player.lastAction = action;
       this.game.setPlayerAction(player.blobIndex, action);
+
+      // Track turning actions (0 = turn right, 1 = turn left)
+      if (action === 0 || action === 1) {
+        this.playersWithTurningActions.add(clientId);
+      }
     }
   }
 

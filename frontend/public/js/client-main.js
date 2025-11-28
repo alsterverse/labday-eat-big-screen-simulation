@@ -46,7 +46,8 @@
       handleInit,
       handleState,
       handleEvent,
-      handleDisconnect
+      handleDisconnect,
+      handleKickedToSpectate
     );
   }
 
@@ -195,6 +196,25 @@
     connected = false;
     UI.setConnectionStatus(false);
     PlayerInput.deactivate();
+  }
+
+  function handleKickedToSpectate() {
+    // Update mode to spectator
+    isPlayerMode = false;
+    playerBlobIndex = -1;
+
+    // Deactivate player input
+    PlayerInput.deactivate();
+
+    // Update UI
+    UI.setPlayerMode(false);
+    UI.updateModeToggle(false);
+    document.body.classList.remove("player-mode");
+
+    // Update URL (remove mode=play param)
+    const url = new URL(window.location.href);
+    url.searchParams.delete("mode");
+    history.pushState({}, "", url);
   }
 
   let lastTime = performance.now();

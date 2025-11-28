@@ -12,8 +12,8 @@ const WebSocketClient = (function () {
   const MAX_RECONNECT_ATTEMPTS = 5;
   const RECONNECT_DELAY = 2000;
 
-  function connect(isPlayerMode, character, onInit, onState, onEvent, onDisconnect) {
-    callbacks = { onInit, onState, onEvent, onDisconnect };
+  function connect(isPlayerMode, character, onInit, onState, onEvent, onDisconnect, onKickedToSpectate) {
+    callbacks = { onInit, onState, onEvent, onDisconnect, onKickedToSpectate };
     currentCharacter = character;
 
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
@@ -52,7 +52,7 @@ const WebSocketClient = (function () {
         reconnectAttempts++;
         console.log(`Reconnecting in ${RECONNECT_DELAY}ms (attempt ${reconnectAttempts})...`);
         setTimeout(() => {
-          connect(isPlayerMode, currentCharacter, onInit, onState, onEvent, onDisconnect);
+          connect(isPlayerMode, currentCharacter, onInit, onState, onEvent, onDisconnect, callbacks.onKickedToSpectate);
         }, RECONNECT_DELAY);
       }
     };
@@ -106,6 +106,14 @@ const WebSocketClient = (function () {
 
       case "pong":
         // Handle latency measurement if needed
+        break;
+
+      case "kickedToSpectate":
+        blobIndex = -1;
+        console.log("Kicked to spectate:", message.reason);
+        if (callbacks.onKickedToSpectate) {
+          callbacks.onKickedToSpectate(message);
+        }
         break;
     }
   }

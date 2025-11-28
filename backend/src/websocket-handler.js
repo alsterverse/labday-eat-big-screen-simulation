@@ -40,6 +40,33 @@ class WebSocketHandler {
         this.sendPlayerIndices();
       }
     };
+
+    // Handle kicking inactive players
+    this.gameServer.onKickInactivePlayers = (clientIds) => {
+      for (const clientId of clientIds) {
+        this.convertPlayerToSpectator(clientId);
+      }
+    };
+  }
+
+  convertPlayerToSpectator(clientId) {
+    const client = this.clients.get(clientId);
+    if (!client || client.type !== "player") return;
+
+    // Remove player from game server
+    this.gameServer.removePlayer(clientId);
+
+    // Update client state to spectator
+    client.type = "spectator";
+    client.blobIndex = -1;
+
+    // Notify the client they've been kicked to spectate
+    this.send(client.ws, {
+      type: "kickedToSpectate",
+      reason: "inactive",
+    });
+
+    console.log(`Player ${clientId} kicked to spectate due to inactivity`);
   }
 
   setupWebSocket() {
