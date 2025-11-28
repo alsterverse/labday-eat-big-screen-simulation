@@ -43,11 +43,21 @@
       gap: 20px;
     }
 
+    @keyframes vibrate {
+      0% { transform: translate(0); }
+      20% { transform: translate(-1px, 1px); }
+      40% { transform: translate(-1px, -1px); }
+      60% { transform: translate(1px, 1px); }
+      80% { transform: translate(1px, -1px); }
+      100% { transform: translate(0); }
+    }
+
     #episode {
       font-size: 28px;
       font-weight: bold;
       text-align: center;
       color: #fff;
+      animation: vibrate 0.3s linear infinite;
     }
 
     #steps {
