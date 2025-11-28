@@ -9,6 +9,30 @@
     return params.get("mode") === "play";
   }
 
+  /**
+   * Fetch visitor token from server and store as session cookie.
+   * Required to join as a player (spam bot prevention).
+   */
+  async function ensureVisitorToken() {
+    // Check if we already have a visitor token cookie
+    if (document.cookie.includes("visitor_token=")) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/visitor-token");
+      if (!response.ok) {
+        console.warn("Failed to fetch visitor token:", response.status);
+        return;
+      }
+      const data = await response.json();
+      // Set as session cookie (no expiry = session only)
+      document.cookie = `visitor_token=${data.token}; path=/; SameSite=Strict`;
+    } catch (err) {
+      console.warn("Failed to fetch visitor token:", err);
+    }
+  }
+
   let isPlayerMode = getIsPlayerMode();
   let playerBlobIndex = -1;
   let connected = false;
@@ -53,6 +77,9 @@
 
   async function init() {
     console.log(`Initializing in ${isPlayerMode ? "player" : "spectator"} mode...`);
+
+    // Ensure visitor token is set (required to join as player)
+    await ensureVisitorToken();
 
     // Initialize UI
     UI.init();
@@ -165,9 +192,9 @@
     switch (event.type) {
       case "foodCollected": {
         Renderer.triggerBounce(event.blobId);
-        Renderer.playEatSound();
-        const currentState = Interpolator.getInterpolatedState();
-        if (currentState && currentState.blobs[event.blobId]?.character === "linda") {
+        const collectorBlob = Interpolator.getInterpolatedState()?.blobs[event.blobId];
+        Renderer.playEatSound(collectorBlob?.character);
+        if (collectorBlob?.character === "linda") {
           Renderer.triggerSpin(event.blobId);
         }
         break;
