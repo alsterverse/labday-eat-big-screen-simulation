@@ -44,19 +44,28 @@ const UI = (function () {
           index,
           name: `Blob ${index + 1}`,
           foods: blob.foodsCollected || 0,
-          icon: `assets/blob${index + 1}.png`
+          // Use the correct character icon if available, otherwise default
+          icon: blob.character ? `assets/${blob.character}.png` : `assets/blob${index + 1}.png`
         }))
         .sort((a, b) => b.foods - a.foods);
 
       let leaderboardHTML = '';
       sorted.forEach((blob, rank) => {
         const rankClass = rank === 0 ? 'first' : rank === 1 ? 'second' : rank === 2 ? 'third' : '';
+        const isPlayer = blob.index === playerBlobIndex;
+        const playerArrow = isPlayer ? '<span class="player-arrow">➤</span>' : '';
+        const rowClass = isPlayer ? 'leaderboard-row player-row' : 'leaderboard-row';
+
         leaderboardHTML += `
-          <div class="leaderboard-row">
+          <div class="${rowClass}">
+            ${playerArrow}
             <span class="leaderboard-rank ${rankClass}">${rank + 1}</span>
             <img src="${blob.icon}" class="leaderboard-icon" alt="${blob.name}">
             <span class="leaderboard-name">${blob.name}</span>
-            <span class="leaderboard-food">🍎 ${blob.foods}</span>
+            <span class="leaderboard-food">
+              <img src="assets/food.png" class="leaderboard-food-icon" alt="food">
+              ${blob.foods}
+            </span>
           </div>
         `;
       });

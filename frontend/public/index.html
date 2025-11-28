@@ -243,6 +243,31 @@
       font-size: 16px;
       font-weight: bold;
       color: #32dc32;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .leaderboard-food-icon {
+      width: 16px;
+      height: 16px;
+    }
+
+    .player-arrow {
+      color: #32dc64;
+      font-weight: bold;
+      margin-right: 5px;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .player-row {
+      background: rgba(50, 220, 100, 0.1) !important;
+      border: 2px solid #32dc64;
     }
 
     .mode-toggle {
