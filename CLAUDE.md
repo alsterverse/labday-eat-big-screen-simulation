@@ -94,9 +94,54 @@ npm run dev      # Start with auto-reload
 ### How it works
 
 - Server runs 2 AI blobs continuously at 30Hz tick rate
-- Broadcasts game state to all connected clients at 20Hz
+- Broadcasts game state to all connected clients at 20Hz using binary protocol
 - Players connect via WebSocket at `/ws/` or `/ws/play`
 - Players control with A/D keys (turn left/right)
+
+### Load Testing
+
+The backend includes a load test script to simulate many concurrent players.
+
+#### Running a Load Test
+
+1. Start the server in load test mode (disables validation and rate limiting):
+   ```bash
+   cd backend
+   npm run start:loadtest
+   ```
+
+2. In another terminal, run the load test:
+   ```bash
+   cd backend
+   npm run loadtest
+   ```
+
+#### Configuration
+
+The load test can be configured via environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOAD_TEST_MODE` | `false` | Enable load test mode (skips validation) |
+| `MAX_PLAYERS` | `100` | Maximum concurrent players allowed |
+| `TARGET_PLAYERS` | `400` | Number of players to simulate |
+| `TEST_DURATION` | `60` | Test duration in seconds |
+| `RAMP_RATE` | `50` | Players to add per second during ramp-up |
+
+Example with custom settings:
+```bash
+# Terminal 1: Start server with higher player limit
+LOAD_TEST_MODE=true MAX_PLAYERS=500 npm start
+
+# Terminal 2: Run load test with custom parameters
+TARGET_PLAYERS=200 TEST_DURATION=30 node load-test.js
+```
+
+#### Metrics Reported
+
+- **Connections**: Active, attempted, succeeded, failed
+- **Messages**: Sent/received counts and bandwidth
+- **Latency**: Average, P95, and P99 ping-pong latency
 
 ## Frontend (Nginx + Static Files)
 
