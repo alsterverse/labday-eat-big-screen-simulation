@@ -98,6 +98,7 @@
 
     .blob1-color { color: #3278dc; }
     .blob2-color { color: #dc3232; }
+    .player-color { color: #32dc64; }
 
     .win-count {
       font-size: 24px;
@@ -151,12 +152,41 @@
       color: #32dc32;
     }
 
+    .mode-indicator {
+      text-align: center;
+      font-size: 16px;
+      font-weight: bold;
+      padding: 10px;
+      border-radius: 5px;
+      background: #222;
+      margin-top: 10px;
+    }
+
     #controls {
       margin-top: auto;
       text-align: center;
       color: #555;
       font-size: 12px;
       line-height: 1.8;
+    }
+
+    .control-group {
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #333;
+    }
+
+    .control-group:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+
+    .control-title {
+      color: #888;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 5px;
     }
 
     #controls kbd {
@@ -219,11 +249,34 @@
       </div>
     </div>
 
+    <div id="player-section" class="section" style="display: none;">
+      <div class="section-title player-color">You</div>
+      <div class="blob-stats">
+        <div>
+          <div class="stat-label">Mass</div>
+          <div id="player-mass" class="stat-value player-color">5.00</div>
+        </div>
+        <div>
+          <div class="stat-label">Foods</div>
+          <div id="player-foods" class="stat-value">0</div>
+        </div>
+      </div>
+    </div>
+
     <div id="status" class="status competing">COMPETING...</div>
 
+    <div id="mode-indicator" class="mode-indicator">Spectator Mode</div>
+
     <div id="controls">
-      <kbd>SPACE</kbd> Pause/Resume<br>
-      <kbd>R</kbd> Reset Episode
+      <div class="control-group">
+        <div class="control-title">Player Controls</div>
+        <kbd>A</kbd> Turn Left &nbsp; <kbd>D</kbd> Turn Right
+      </div>
+      <div class="control-group">
+        <div class="control-title">Game</div>
+        <kbd>J</kbd> Join / Leave<br>
+        <kbd>R</kbd> Reset &nbsp; <kbd>SPACE</kbd> Pause
+      </div>
     </div>
   </div>
 
@@ -232,6 +285,7 @@
   <script src="game.js"></script>
   <script src="renderer.js"></script>
   <script src="ui.js"></script>
+  <script src="controller.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

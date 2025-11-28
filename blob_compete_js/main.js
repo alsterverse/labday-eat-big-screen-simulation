@@ -5,12 +5,17 @@
 
 (async function () {
   // State
-  let model1 = null;
-  let model2 = null;
+  let controllers = []; // Dynamic array of controllers
+  let playerController = null;
+  let playerBlobIndex = -1; // Index of player blob (-1 = not playing)
   let paused = false;
   let done = false;
   let lastTime = 0;
   let resetTimer = 0;
+
+  // Store models
+  let model1 = null;
+  let model2 = null;
 
   /**
    * Initialize the application
@@ -31,8 +36,11 @@
     model2 = await DQN.load("weights/blob2_weights.json");
     console.log("Models loaded successfully");
 
-    // Initialize game
-    Game.reset();
+    // Create player controller
+    playerController = new Controller.PlayerController();
+
+    // Initialize game (starts in spectator mode)
+    resetGame();
 
     // Set up keyboard controls
     setupControls();
@@ -46,7 +54,79 @@
     lastTime = performance.now();
     requestAnimationFrame(loop);
 
-    console.log("Initialization complete. Press SPACE to pause, R to reset.");
+    console.log("Initialization complete. Press SPACE to pause, R to reset, J to join/leave.");
+  }
+
+  /**
+   * Reset the game state
+   */
+  function resetGame() {
+    const wasPlaying = playerBlobIndex !== -1;
+
+    Game.reset();
+
+    // Set up AI controllers for the two AI blobs
+    controllers = [
+      new Controller.AIController(model1),
+      new Controller.AIController(model2),
+    ];
+
+    // Reset player index before respawning
+    playerBlobIndex = -1;
+
+    // If player was in game, respawn them
+    if (wasPlaying) {
+      spawnPlayer();
+    }
+
+    done = false;
+    resetTimer = 0;
+  }
+
+  /**
+   * Spawn player blob
+   */
+  function spawnPlayer() {
+    if (playerBlobIndex !== -1) return; // Already in game
+
+    // Add new blob to game
+    playerBlobIndex = Game.addBlob();
+
+    // Add player controller
+    controllers.push(playerController);
+    playerController.activate();
+
+    UI.setPlayerMode(true);
+    console.log("Player joined as blob", playerBlobIndex + 1);
+  }
+
+  /**
+   * Remove player blob (spectator mode)
+   */
+  function despawnPlayer() {
+    if (playerBlobIndex === -1) return; // Not in game
+
+    // Remove player blob from game
+    Game.removeBlob(playerBlobIndex);
+
+    // Remove player controller
+    controllers.splice(playerBlobIndex, 1);
+    playerController.deactivate();
+
+    playerBlobIndex = -1;
+    UI.setPlayerMode(false);
+    console.log("Player left - spectator mode");
+  }
+
+  /**
+   * Toggle player in/out of game
+   */
+  function togglePlayer() {
+    if (playerBlobIndex === -1) {
+      spawnPlayer();
+    } else {
+      despawnPlayer();
+    }
   }
 
   /**
@@ -61,13 +141,14 @@
           UI.setPaused(paused);
           break;
         case "KeyR":
-          Game.reset();
-          done = false;
-          resetTimer = 0;
+          resetGame();
+          break;
+        case "KeyJ":
+          // Join/leave game
+          togglePlayer();
           break;
         case "KeyQ":
         case "Escape":
-          // Could close window if in electron, otherwise just log
           console.log("Quit requested");
           break;
       }
@@ -85,25 +166,21 @@
     if (done && resetTimer > 0) {
       resetTimer -= dt;
       if (resetTimer <= 0) {
-        Game.reset();
-        done = false;
+        resetGame();
       }
     }
 
     // Run simulation with delta time
     if (!paused && !done) {
-      // Get observations
-      const state1 = Game.getObservation(0);
-      const state2 = Game.getObservation(1);
-
-      // Run inference
-      const qValues1 = model1.predict(state1);
-      const qValues2 = model2.predict(state2);
-      const action1 = model1.getAction(qValues1);
-      const action2 = model2.getAction(qValues2);
+      // Get actions from all controllers
+      const actions = [];
+      for (let i = 0; i < controllers.length; i++) {
+        const observation = Game.getObservation(i);
+        actions.push(controllers[i].getAction(observation));
+      }
 
       // Step simulation with delta time
-      const result = Game.step(action1, action2, dt);
+      const result = Game.step(actions, dt);
 
       // Handle events
       for (const event of result.events) {
@@ -113,8 +190,13 @@
         } else if (event.type === "death") {
           const state = Game.getState();
           const blob = state.blobs[event.blobId];
-          const screen = Renderer.worldToScreen(blob.x, blob.y);
-          Renderer.spawnExplosion(screen.x, screen.y, event.blobId);
+          if (blob) {
+            const screen = Renderer.worldToScreen(blob.x, blob.y);
+            Renderer.spawnExplosion(screen.x, screen.y, event.blobId);
+          }
+
+          // If player died, mark them as dead but keep index
+          // They'll respawn on reset
         }
       }
 
@@ -131,7 +213,7 @@
 
     // Render
     Renderer.render(Game.getState());
-    UI.update(Game.getStats());
+    UI.update(Game.getStats(), playerBlobIndex);
 
     // Continue loop
     requestAnimationFrame(loop);

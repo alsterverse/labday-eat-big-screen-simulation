@@ -22,11 +22,8 @@ const Renderer = (function () {
   let particles = [];
   const MAX_PARTICLES = 500;
 
-  // Animations
-  const blobAnimations = [
-    { scale: 1.0, bounceTime: 0 },
-    { scale: 1.0, bounceTime: 0 },
-  ];
+  // Animations (dynamic array for variable blob count)
+  let blobAnimations = [];
   const foodRotations = [];
 
   // Web Audio API for low-latency sound
@@ -231,6 +228,7 @@ const Renderer = (function () {
     await Promise.all([
       loadTexture("blob1", "assets/blob1.png"),
       loadTexture("blob2", "assets/blob2.png"),
+      loadTexture("blob3", "assets/blob3.png"),
       loadTexture("food", "assets/food.png"),
       loadTexture("trophy", "assets/trophy.png"),
     ]);
@@ -350,6 +348,10 @@ const Renderer = (function () {
    * Trigger bounce animation for a blob
    */
   function triggerBounce(blobId) {
+    // Ensure animation entry exists
+    while (blobAnimations.length <= blobId) {
+      blobAnimations.push({ scale: 1.0, bounceTime: 0 });
+    }
     blobAnimations[blobId].bounceTime = 0.4;
   }
 
@@ -375,18 +377,13 @@ const Renderer = (function () {
    * Spawn explosion particles
    */
   function spawnExplosion(x, y, blobId) {
-    const colors =
-      blobId === 0
-        ? [
-            [50, 120, 220],
-            [150, 200, 255],
-            [255, 255, 255],
-          ]
-        : [
-            [220, 50, 50],
-            [255, 150, 150],
-            [255, 255, 255],
-          ];
+    // Colors: blob1=blue, blob2=red, blob3+=green (player)
+    const colorSets = [
+      [[50, 120, 220], [150, 200, 255], [255, 255, 255]], // blob1 - blue
+      [[220, 50, 50], [255, 150, 150], [255, 255, 255]], // blob2 - red
+      [[50, 220, 100], [150, 255, 180], [255, 255, 255]], // blob3 - green (player)
+    ];
+    const colors = colorSets[Math.min(blobId, colorSets.length - 1)];
 
     const count = Math.min(80, MAX_PARTICLES - particles.length);
 
@@ -413,8 +410,8 @@ const Renderer = (function () {
    * Update animations
    */
   function updateAnimations(dt) {
-    // Update bounce animations
-    for (let i = 0; i < 2; i++) {
+    // Update bounce animations for all blobs
+    for (let i = 0; i < blobAnimations.length; i++) {
       if (blobAnimations[i].bounceTime > 0) {
         blobAnimations[i].bounceTime -= dt;
         // Elastic spring: decaying oscillation
@@ -533,8 +530,16 @@ const Renderer = (function () {
     // Draw blobs
     for (let i = 0; i < state.blobs.length; i++) {
       const blob = state.blobs[i];
+      if (!blob.alive) continue; // Skip dead blobs
+
       const screen = worldToScreen(blob.x, blob.y);
-      const texName = i === 0 ? "blob1" : "blob2";
+      // blob1, blob2 for AI, blob3 for player (index 2+)
+      const texName = i === 0 ? "blob1" : i === 1 ? "blob2" : "blob3";
+
+      // Ensure animation entry exists
+      while (blobAnimations.length <= i) {
+        blobAnimations.push({ scale: 1.0, bounceTime: 0 });
+      }
 
       // Calculate size based on mass and animation
       const baseSize = state.agentRadius * gameScale * 2;

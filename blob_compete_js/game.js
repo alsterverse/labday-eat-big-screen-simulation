@@ -18,14 +18,11 @@ const Game = (function () {
   const MAX_STEPS = 2000;
 
   // Game state
-  let blobs = [
-    { x: 0, y: 0, angle: 0, mass: INITIAL_MASS, foodsCollected: 0 },
-    { x: 0, y: 0, angle: 0, mass: INITIAL_MASS, foodsCollected: 0 },
-  ];
+  let blobs = [];
   let foods = [];
   let steps = 0;
   let episode = 1;
-  let wins = [0, 0];
+  let wins = [0, 0, 0]; // Support up to 3 blobs
   let terminated = false;
   let winner = null;
 
@@ -64,25 +61,26 @@ const Game = (function () {
   }
 
   /**
+   * Create a new blob at a random position
+   */
+  function createBlob() {
+    const margin = 10;
+    return {
+      x: margin + Math.random() * (MAP_SIZE - 2 * margin),
+      y: margin + Math.random() * (MAP_SIZE - 2 * margin),
+      angle: Math.random() * 2 * Math.PI - Math.PI,
+      mass: INITIAL_MASS,
+      foodsCollected: 0,
+      alive: true,
+    };
+  }
+
+  /**
    * Initialize/reset the game state
    */
   function reset() {
-    // Reset blobs to random positions
-    const margin = 10;
-    blobs[0] = {
-      x: margin + Math.random() * (MAP_SIZE - 2 * margin),
-      y: margin + Math.random() * (MAP_SIZE - 2 * margin),
-      angle: Math.random() * 2 * Math.PI - Math.PI,
-      mass: INITIAL_MASS,
-      foodsCollected: 0,
-    };
-    blobs[1] = {
-      x: margin + Math.random() * (MAP_SIZE - 2 * margin),
-      y: margin + Math.random() * (MAP_SIZE - 2 * margin),
-      angle: Math.random() * 2 * Math.PI - Math.PI,
-      mass: INITIAL_MASS,
-      foodsCollected: 0,
-    };
+    // Reset to 2 AI blobs
+    blobs = [createBlob(), createBlob()];
 
     // Spawn initial foods
     foods = [];
@@ -95,8 +93,35 @@ const Game = (function () {
     winner = null;
 
     return {
-      observations: [getObservation(0), getObservation(1)],
+      observations: blobs.map((_, i) => getObservation(i)),
     };
+  }
+
+  /**
+   * Add a new blob (e.g., player blob)
+   * @returns {number} The index of the new blob
+   */
+  function addBlob() {
+    const blob = createBlob();
+    blobs.push(blob);
+    return blobs.length - 1;
+  }
+
+  /**
+   * Remove a blob by index
+   * @param {number} blobId - Index of blob to remove
+   */
+  function removeBlob(blobId) {
+    if (blobId >= 0 && blobId < blobs.length) {
+      blobs.splice(blobId, 1);
+    }
+  }
+
+  /**
+   * Get the number of blobs
+   */
+  function getBlobCount() {
+    return blobs.length;
   }
 
   /**
@@ -104,12 +129,24 @@ const Game = (function () {
    */
   function getObservation(blobId) {
     const blob = blobs[blobId];
-    const other = blobs[1 - blobId];
+    if (!blob) return [0, 0, 0, 0, 1, 0, 1, 0];
+
     const maxDist = Math.sqrt(2) * MAP_SIZE;
 
-    // Distance and angle to other blob
-    const distToOther = distance(blob, other) / maxDist;
-    const angleToOther = normalizeAngle(angleTo(blob, other) - blob.angle);
+    // Find nearest other blob
+    let distToOther = 1.0;
+    let angleToOther = 0.0;
+    let minDistOther = Infinity;
+    for (let i = 0; i < blobs.length; i++) {
+      if (i !== blobId && blobs[i].alive) {
+        const d = distance(blob, blobs[i]);
+        if (d < minDistOther) {
+          minDistOther = d;
+          distToOther = d / maxDist;
+          angleToOther = normalizeAngle(angleTo(blob, blobs[i]) - blob.angle);
+        }
+      }
+    }
 
     // Find nearest food
     let distToFood = 1.0;
@@ -135,8 +172,8 @@ const Game = (function () {
       blob.y / MAP_SIZE, // 1: normalized y position
       blob.angle, // 2: heading angle (-PI to PI)
       blob.mass / 10.0, // 3: normalized mass
-      distToOther, // 4: normalized distance to opponent
-      angleToOther, // 5: relative angle to opponent
+      distToOther, // 4: normalized distance to nearest opponent
+      angleToOther, // 5: relative angle to nearest opponent
       distToFood, // 6: normalized distance to nearest food
       angleToFood, // 7: relative angle to nearest food
     ];
@@ -144,23 +181,21 @@ const Game = (function () {
 
   /**
    * Execute one simulation step with delta time
-   * @param {number} action1 - Action for blob 0 (0=left, 1=right)
-   * @param {number} action2 - Action for blob 1 (0=left, 1=right)
+   * @param {number[]} actions - Actions for each blob (0=left, 1=right)
    * @param {number} dt - Delta time in seconds
    * @returns {object} Step result with observations, rewards, events
    */
-  function step(action1, action2, dt) {
+  function step(actions, dt) {
     if (terminated) {
       return {
-        observations: [getObservation(0), getObservation(1)],
-        rewards: [0, 0],
+        observations: blobs.map((_, i) => getObservation(i)),
+        rewards: blobs.map(() => 0),
         done: true,
         events: [],
       };
     }
 
     const events = [];
-    const actions = [action1, action2];
 
     // Scale physics by delta time
     const turnRate = BASE_TURN_RATE * dt;
@@ -168,8 +203,10 @@ const Game = (function () {
     const massDecay = BASE_MASS_DECAY * dt;
 
     // Update each blob
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < blobs.length; i++) {
       const blob = blobs[i];
+      if (!blob.alive) continue;
+
       const action = actions[i];
 
       // Apply steering (action 0 = add angle, action 1 = subtract)
@@ -198,8 +235,9 @@ const Game = (function () {
     const foodCollisionRadius = AGENT_RADIUS + 1.0;
     for (let i = foods.length - 1; i >= 0; i--) {
       const food = foods[i];
-      for (let j = 0; j < 2; j++) {
+      for (let j = 0; j < blobs.length; j++) {
         const blob = blobs[j];
+        if (!blob.alive) continue;
         if (distance(blob, food) < foodCollisionRadius) {
           // Blob collected food
           blob.mass += FOOD_GAIN;
@@ -212,18 +250,33 @@ const Game = (function () {
       }
     }
 
+    // Initialize rewards
+    let rewards = blobs.map((b) => (b.alive ? 0.01 : 0)); // Base survival reward
+
     // Check for death
-    let rewards = [0.01, 0.01]; // Base survival reward
-    for (let i = 0; i < 2; i++) {
-      if (blobs[i].mass <= MIN_MASS) {
-        terminated = true;
-        winner = 1 - i; // Other blob wins
-        wins[winner]++;
-        episode++;
+    for (let i = 0; i < blobs.length; i++) {
+      if (blobs[i].alive && blobs[i].mass <= MIN_MASS) {
+        blobs[i].alive = false;
         events.push({ type: "death", blobId: i });
         rewards[i] = 0;
-        rewards[1 - i] = 1; // Winner bonus
-        break;
+
+        // Check if only one blob remains (AI blobs only for win counting)
+        const aliveAIBlobs = blobs.slice(0, 2).filter((b) => b.alive);
+        if (aliveAIBlobs.length === 1) {
+          const winnerIdx = blobs.slice(0, 2).findIndex((b) => b.alive);
+          if (winnerIdx !== -1) {
+            terminated = true;
+            winner = winnerIdx;
+            wins[winner]++;
+            episode++;
+            rewards[winnerIdx] = 1; // Winner bonus
+          }
+        } else if (aliveAIBlobs.length === 0) {
+          // Both AI blobs dead
+          terminated = true;
+          winner = null;
+          episode++;
+        }
       }
     }
 
@@ -245,7 +298,7 @@ const Game = (function () {
     }
 
     return {
-      observations: [getObservation(0), getObservation(1)],
+      observations: blobs.map((_, i) => getObservation(i)),
       rewards: rewards,
       done: terminated || truncated,
       truncated: truncated,
@@ -290,6 +343,9 @@ const Game = (function () {
     getObservation,
     getState,
     getStats,
+    addBlob,
+    removeBlob,
+    getBlobCount,
     MAP_SIZE,
     AGENT_RADIUS,
     INITIAL_MASS,

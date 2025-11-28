@@ -5,6 +5,7 @@
 
 const UI = (function () {
   let elements = {};
+  let isPlayerMode = false;
 
   /**
    * Initialize UI elements
@@ -23,6 +24,10 @@ const UI = (function () {
       blob2Foods: document.getElementById("blob2-foods"),
       status: document.getElementById("status"),
       pauseIndicator: document.getElementById("pause-indicator"),
+      modeIndicator: document.getElementById("mode-indicator"),
+      playerSection: document.getElementById("player-section"),
+      playerMass: document.getElementById("player-mass"),
+      playerFoods: document.getElementById("player-foods"),
     };
   }
 
@@ -43,7 +48,7 @@ const UI = (function () {
   /**
    * Update UI with current stats
    */
-  function update(stats) {
+  function update(stats, playerBlobIndex) {
     if (!elements.episode) return;
 
     elements.episode.textContent = `Episode ${stats.episode}`;
@@ -55,11 +60,20 @@ const UI = (function () {
     elements.blob1Trophies.innerHTML = createTrophies(stats.wins[0]);
     elements.blob2Trophies.innerHTML = createTrophies(stats.wins[1]);
 
-    elements.blob1Mass.textContent = stats.blobs[0].mass.toFixed(2);
-    elements.blob2Mass.textContent = stats.blobs[1].mass.toFixed(2);
+    elements.blob1Mass.textContent = stats.blobs[0]?.mass.toFixed(2) || "0.00";
+    elements.blob2Mass.textContent = stats.blobs[1]?.mass.toFixed(2) || "0.00";
 
-    elements.blob1Foods.textContent = stats.blobs[0].foodsCollected;
-    elements.blob2Foods.textContent = stats.blobs[1].foodsCollected;
+    elements.blob1Foods.textContent = stats.blobs[0]?.foodsCollected || 0;
+    elements.blob2Foods.textContent = stats.blobs[1]?.foodsCollected || 0;
+
+    // Update player stats if in game
+    if (elements.playerSection && playerBlobIndex !== -1 && stats.blobs[playerBlobIndex]) {
+      elements.playerSection.style.display = "block";
+      elements.playerMass.textContent = stats.blobs[playerBlobIndex].mass.toFixed(2);
+      elements.playerFoods.textContent = stats.blobs[playerBlobIndex].foodsCollected;
+    } else if (elements.playerSection) {
+      elements.playerSection.style.display = "none";
+    }
 
     // Status
     if (stats.terminated) {
@@ -88,9 +102,27 @@ const UI = (function () {
     }
   }
 
+  /**
+   * Update UI for player mode (playing vs spectating)
+   */
+  function setPlayerMode(playing) {
+    isPlayerMode = playing;
+
+    if (elements.modeIndicator) {
+      if (playing) {
+        elements.modeIndicator.textContent = "Playing";
+        elements.modeIndicator.className = "mode-indicator player-color";
+      } else {
+        elements.modeIndicator.textContent = "Spectator Mode";
+        elements.modeIndicator.className = "mode-indicator";
+      }
+    }
+  }
+
   return {
     init,
     update,
     setPaused,
+    setPlayerMode,
   };
 })();
