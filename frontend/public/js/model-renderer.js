@@ -583,19 +583,18 @@ const ModelRenderer = (function () {
       previewGl.depthFunc(previewGl.LEQUAL);
 
       const scale = 2.8;
-      const cosY = Math.cos(previewRotation);
-      const sinY = Math.sin(previewRotation);
+      const yAngle = -previewRotation + Math.PI / 2;
+      const isoTilt = Math.PI / 3;
 
-      const isoTilt = Math.PI / 6;
-      const cosX = Math.cos(isoTilt);
-      const sinX = Math.sin(isoTilt);
+      const baseRotation = mat4FromRotationZ(Math.PI / 2);
+      const yRotation = mat4FromRotationY(yAngle);
+      const xRotation = mat4FromRotationX(isoTilt);
+      const scaleMatrix = mat4FromScaling(scale, scale, scale);
 
-      const modelMatrix = new Float32Array([
-        scale * cosY, scale * sinX * sinY, scale * cosX * sinY, 0,
-        0, scale * cosX, -scale * sinX, 0,
-        -scale * sinY, scale * sinX * cosY, scale * cosX * cosY, 0,
-        0, 0, 0, 1
-      ]);
+      let modelMatrix = mat4Create();
+      mat4Multiply(modelMatrix, yRotation, baseRotation);
+      mat4Multiply(modelMatrix, xRotation, modelMatrix);
+      mat4Multiply(modelMatrix, scaleMatrix, modelMatrix);
 
       const viewMatrix = mat4Create();
       const projectionMatrix = mat4Create();
