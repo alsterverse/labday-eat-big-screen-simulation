@@ -9,7 +9,6 @@ env/
 ENV/
 
 # Model files
-*.pth
 *.pkl
 
 # IDE
