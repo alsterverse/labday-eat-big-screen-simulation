@@ -132,7 +132,7 @@
     // Render interpolated state
     const state = Interpolator.getInterpolatedState();
     if (state) {
-      Renderer.render(state);
+      Renderer.render(state, playerBlobIndex);
     }
 
     requestAnimationFrame(renderLoop);

@@ -9,8 +9,10 @@ const Renderer = (function () {
 
   let spriteProgram = null;
   let particleProgram = null;
+  let solidProgram = null;
   let quadBuffer = null;
   let particleBuffer = null;
+  let triangleBuffer = null;
 
   const textures = {};
   let particles = [];
@@ -18,6 +20,7 @@ const Renderer = (function () {
 
   let blobAnimations = [];
   const foodRotations = [];
+  let arrowBobTime = 0;
 
   let audioContext = null;
   let eatSound1Buffer = null;
@@ -98,6 +101,24 @@ const Renderer = (function () {
     }
   `;
 
+  const solidVertexShader = `#version 300 es
+    in vec2 a_position;
+    uniform vec2 u_resolution;
+    void main() {
+      vec2 clipSpace = (a_position / u_resolution) * 2.0 - 1.0;
+      gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+    }
+  `;
+
+  const solidFragmentShader = `#version 300 es
+    precision highp float;
+    uniform vec4 u_color;
+    out vec4 outColor;
+    void main() {
+      outColor = u_color;
+    }
+  `;
+
   function compileShader(source, type) {
     const shader = gl.createShader(type);
     gl.shaderSource(shader, source);
@@ -154,6 +175,7 @@ const Renderer = (function () {
 
     spriteProgram = createProgram(spriteVertexShader, spriteFragmentShader);
     particleProgram = createProgram(particleVertexShader, particleFragmentShader);
+    solidProgram = createProgram(solidVertexShader, solidFragmentShader);
 
     const quadVertices = new Float32Array([
       -0.5, -0.5, 0, 1,
@@ -166,6 +188,7 @@ const Renderer = (function () {
     gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
 
     particleBuffer = gl.createBuffer();
+    triangleBuffer = gl.createBuffer();
 
     await Promise.all([
       loadTexture("blob1", "assets/blob1.png"),
@@ -257,6 +280,33 @@ const Renderer = (function () {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
+  function drawTriangle(x, y, size, color) {
+    // Draw a downward-pointing triangle at (x, y)
+    // color is [r, g, b, a] with values 0-1
+    const halfWidth = size * 0.6;
+    const height = size;
+
+    // Triangle vertices: tip at bottom, flat top
+    const vertices = new Float32Array([
+      x, y + height / 2,           // Bottom tip
+      x - halfWidth, y - height / 2, // Top left
+      x + halfWidth, y - height / 2, // Top right
+    ]);
+
+    gl.useProgram(solidProgram);
+    gl.uniform2f(gl.getUniformLocation(solidProgram, "u_resolution"), viewportWidth, viewportHeight);
+    gl.uniform4fv(gl.getUniformLocation(solidProgram, "u_color"), color);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, triangleBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+
+    const posLoc = gl.getAttribLocation(solidProgram, "a_position");
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
   function triggerBounce(blobId) {
     while (blobAnimations.length <= blobId) {
       blobAnimations.push({ scale: 1.0, bounceTime: 0 });
@@ -323,6 +373,9 @@ const Renderer = (function () {
     for (const rot of foodRotations) {
       rot.angle += rot.speed * dt;
     }
+
+    // Update arrow bob animation
+    arrowBobTime += dt * 3;
   }
 
   function updateParticles(dt) {
@@ -384,7 +437,7 @@ const Renderer = (function () {
     gl.drawArrays(gl.POINTS, 0, particles.length);
   }
 
-  function render(state) {
+  function render(state, playerBlobIndex = -1) {
     if (!state) return;
 
     gl.clearColor(0, 0, 0, 1);
@@ -425,6 +478,25 @@ const Renderer = (function () {
       }
 
       drawSprite(texName, screen.x, screen.y, size, rotation, flipY);
+    }
+
+    // Draw player indicator arrow
+    if (playerBlobIndex >= 0 && state.blobs[playerBlobIndex]?.alive) {
+      const playerBlob = state.blobs[playerBlobIndex];
+      const screen = worldToScreen(playerBlob.x, playerBlob.y);
+
+      // Calculate blob size for positioning
+      const baseSize = agentRadius * gameScale * 2;
+      const massScale = playerBlob.mass / initialMass;
+      const blobSize = baseSize * massScale;
+
+      // Arrow position: above the blob with bobbing animation
+      const bobOffset = Math.sin(arrowBobTime) * 5;
+      const arrowY = screen.y - blobSize / 2 - 20 + bobOffset;
+      const arrowSize = 20;
+
+      // Green color: #32dc64 = rgb(50, 220, 100)
+      drawTriangle(screen.x, arrowY, arrowSize, [50/255, 220/255, 100/255, 1.0]);
     }
 
     renderParticles();
