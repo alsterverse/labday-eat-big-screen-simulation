@@ -23,8 +23,8 @@ const Renderer = (function () {
   let arrowBobTime = 0;
 
   let audioContext = null;
-  let eatSound1Buffer = null;
-  let eatSound2Buffer = null;
+  let eatSoundFallback = null;
+  const characterSounds = {};
 
   let viewportWidth = 900;
   let viewportHeight = 800;
@@ -195,7 +195,6 @@ const Renderer = (function () {
     await Promise.all([
       loadTexture("blob1", "assets/blob1.png"),
       loadTexture("blob2", "assets/blob2.png"),
-      loadTexture("blob3", "assets/blob3.png"),
       loadTexture("food", "assets/food.png"),
       loadTexture("trophy", "assets/trophy.png"),
       loadTexture("player_mats", "assets/players/mats.png"),
@@ -219,10 +218,17 @@ const Renderer = (function () {
       const arrayBuffer = await response.arrayBuffer();
       return audioContext.decodeAudioData(arrayBuffer);
     }
-    [eatSound1Buffer, eatSound2Buffer] = await Promise.all([
-      loadAudioBuffer("assets/eat1.ogg"),
-      loadAudioBuffer("assets/eat2.ogg"),
-    ]);
+    eatSoundFallback = await loadAudioBuffer("assets/eat.ogg");
+
+    // Load character-specific sounds (fail silently if not found)
+    const characters = ["mats", "krille", "tommi", "per", "linda"];
+    await Promise.all(characters.map(async (char) => {
+      try {
+        characterSounds[char] = await loadAudioBuffer(`assets/players/${char}.ogg`);
+      } catch (e) {
+        // No sound for this character, will use fallback
+      }
+    }));
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -322,12 +328,12 @@ const Renderer = (function () {
     blobAnimations[blobId].bounceTime = 0.4;
   }
 
-  function playEatSound() {
+  function playEatSound(character) {
     if (!audioContext || audioContext.state === "suspended") {
       audioContext?.resume();
       return;
     }
-    const buffer = Math.random() < 0.2 ? eatSound2Buffer : eatSound1Buffer;
+    const buffer = characterSounds[character] || eatSoundFallback;
     if (!buffer) return;
 
     const source = audioContext.createBufferSource();
@@ -486,7 +492,7 @@ const Renderer = (function () {
         if (blob.character) {
           texName = `player_${blob.character}`;
         } else {
-          texName = i === 0 ? "blob1" : i === 1 ? "blob2" : "blob3";
+          texName = i % 2 === 0 ? "blob1" : "blob2";
         }
 
         let rotation = blob.angle;

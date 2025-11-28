@@ -165,7 +165,8 @@
     switch (event.type) {
       case "foodCollected":
         Renderer.triggerBounce(event.blobId);
-        Renderer.playEatSound();
+        const collectorBlob = Interpolator.getInterpolatedState()?.blobs[event.blobId];
+        Renderer.playEatSound(collectorBlob?.character);
         break;
 
       case "death":
