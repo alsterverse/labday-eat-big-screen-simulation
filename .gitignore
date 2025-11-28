@@ -8,8 +8,7 @@ venv/
 env/
 ENV/
 
-# Model files (PyTorch)
-*.pth
+# Model files
 *.pkl
 
 # Keep numpy weight files
