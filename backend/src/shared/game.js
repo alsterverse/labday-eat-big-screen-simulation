@@ -218,9 +218,10 @@ function createGame() {
 
       if (action === 0) {
         blob.angle += turnRate;
-      } else {
+      } else if (action === 1) {
         blob.angle -= turnRate;
       }
+      // action === 2: no angle change (go straight)
       blob.angle = normalizeAngle(blob.angle);
 
       blob.x += Math.cos(blob.angle) * speed;

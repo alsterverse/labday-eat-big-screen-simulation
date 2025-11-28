@@ -86,8 +86,8 @@ class GameServer {
         if (playerAction !== undefined) {
           actions.push(playerAction);
         } else {
-          // Default: alternate to go straight
-          actions.push(Math.random() < 0.5 ? 0 : 1);
+          // Default: go straight
+          actions.push(2);
         }
       }
     }

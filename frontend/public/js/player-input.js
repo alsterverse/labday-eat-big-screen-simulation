@@ -6,7 +6,6 @@ const PlayerInput = (function () {
   let keys = { left: false, right: false };
   let onActionCallback = null;
   let actionInterval = null;
-  let straightToggle = false;
   let lastAction = null;
 
   function handleKeyDown(e) {
@@ -32,9 +31,7 @@ const PlayerInput = (function () {
     } else if (keys.right && !keys.left) {
       action = 0; // Turn right
     } else {
-      // Neither or both - alternate to go straight
-      straightToggle = !straightToggle;
-      action = straightToggle ? 0 : 1;
+      action = 2; // Go straight
     }
 
     // Only send if action changed or on regular interval
