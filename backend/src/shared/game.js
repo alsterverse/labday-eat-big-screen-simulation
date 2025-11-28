@@ -182,7 +182,7 @@ function createGame() {
    */
   function computeObservation(blobId) {
     const blob = blobs[blobId];
-    if (!blob) return [0, 0, 0, 0, 1, 0, 1, 0];
+    if (!blob || !blob.alive) return [0, 0, 0, 0, 1, 0, 1, 0];
 
     const maxDist = Math.sqrt(2) * MAP_SIZE;
 

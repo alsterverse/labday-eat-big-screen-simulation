@@ -10,6 +10,11 @@ function generateClientId() {
   return `client_${++clientIdCounter}_${Date.now().toString(36)}`;
 }
 
+const MAX_PLAYERS = 20; // Maximum number of players allowed
+const CONNECTION_RATE_LIMIT = 2000; // 2 seconds between connections from same client
+const activeTokens = new Set(); // Track active session tokens to prevent duplicate joins
+const tokenConnectionTimes = new Map(); // token -> last connection timestamp
+
 class WebSocketHandler {
   constructor(server, gameServer) {
     this.wss = new WebSocketServer({ server });
@@ -56,6 +61,11 @@ class WebSocketHandler {
     // Remove player from game server
     this.gameServer.removePlayer(clientId);
 
+    // Release the session token so they can rejoin later
+    if (client.sessionToken) {
+      activeTokens.delete(client.sessionToken);
+    }
+
     // Update client state to spectator
     client.type = "spectator";
     client.blobIndex = -1;
@@ -75,6 +85,59 @@ class WebSocketHandler {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const isPlayer = url.pathname === "/play" || url.pathname === "/ws/play" || url.searchParams.get("mode") === "play";
       const character = url.searchParams.get("character");
+      const sessionToken = url.searchParams.get("token");
+
+      // Rate limiting and validation for players
+      if (isPlayer) {
+        const now = Date.now();
+
+        // Require session token
+        if (!sessionToken || sessionToken.length < 10) {
+          console.log(`Missing or invalid token`);
+          ws.close(1008, "Invalid session");
+          return;
+        }
+
+        // Check if token is already in use
+        if (activeTokens.has(sessionToken)) {
+          console.log(`Token ${sessionToken} already in use`);
+          ws.close(1008, "Already connected");
+          return;
+        }
+
+        // Rate limiting per token
+        const lastConnection = tokenConnectionTimes.get(sessionToken);
+        if (lastConnection && (now - lastConnection) < CONNECTION_RATE_LIMIT) {
+          console.log(`Rate limit exceeded for token ${sessionToken}`);
+          ws.close(1008, "Too many connection attempts. Please wait.");
+          return;
+        }
+
+        // Check max players
+        const currentPlayers = this.getPlayerCount();
+        if (currentPlayers >= MAX_PLAYERS) {
+          console.log(`Max players reached (${MAX_PLAYERS})`);
+          ws.close(1008, `Server is full (${MAX_PLAYERS} players max)`);
+          return;
+        }
+
+        // Require character selection
+        if (!character) {
+          console.log(`No character selected`);
+          ws.close(1008, "Character selection required");
+          return;
+        }
+
+        activeTokens.add(sessionToken);
+        tokenConnectionTimes.set(sessionToken, now);
+
+        // Clean up old token times (older than 5 minutes)
+        for (const [token, time] of tokenConnectionTimes.entries()) {
+          if (now - time > 300000) {
+            tokenConnectionTimes.delete(token);
+          }
+        }
+      }
 
       let blobIndex = -1;
       if (isPlayer) {
@@ -86,6 +149,7 @@ class WebSocketHandler {
         type: isPlayer ? "player" : "spectator",
         blobIndex,
         character,
+        sessionToken,
       });
 
       console.log(
@@ -148,6 +212,11 @@ class WebSocketHandler {
 
     if (client.type === "player") {
       this.gameServer.removePlayer(clientId);
+
+      // Release the session token
+      if (client.sessionToken) {
+        activeTokens.delete(client.sessionToken);
+      }
     }
 
     this.clients.delete(clientId);
