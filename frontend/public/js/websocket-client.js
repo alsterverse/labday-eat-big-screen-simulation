@@ -60,7 +60,7 @@ const WebSocketClient = (function () {
       reconnectAttempts = 0;
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = async (event) => {
       try {
         // Handle binary messages (state updates)
         if (event.data instanceof ArrayBuffer) {
@@ -70,6 +70,17 @@ const WebSocketClient = (function () {
           }
           return;
         }
+
+        // Handle Blob (some browsers may send binary as Blob)
+        if (event.data instanceof Blob) {
+          const buffer = await event.data.arrayBuffer();
+          const state = BinaryProtocol.decodeState(buffer);
+          if (state && callbacks.onState) {
+            callbacks.onState(state);
+          }
+          return;
+        }
+
         // Handle JSON messages (init, events, etc.)
         const message = JSON.parse(event.data);
         handleMessage(message);
