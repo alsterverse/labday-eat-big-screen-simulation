@@ -17,6 +17,10 @@ ENV/
 *.jpg
 *.jpeg
 
+# But keep assets
+!assets/
+!assets/**
+
 # IDE
 .vscode/
 .idea/
