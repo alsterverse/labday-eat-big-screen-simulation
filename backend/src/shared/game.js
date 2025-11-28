@@ -51,7 +51,7 @@ function createGame() {
     };
   }
 
-  function createBlob() {
+  function createBlob(aiControlled = true) {
     const margin = 10;
     return {
       x: margin + Math.random() * (MAP_SIZE - 2 * margin),
@@ -60,6 +60,7 @@ function createGame() {
       mass: INITIAL_MASS,
       foodsCollected: 0,
       alive: true,
+      aiControlled: aiControlled,
     };
   }
 
@@ -83,8 +84,8 @@ function createGame() {
     };
   }
 
-  function addBlob() {
-    const blob = createBlob();
+  function addBlob(aiControlled = false) {
+    const blob = createBlob(aiControlled);
     blobs.push(blob);
     return blobs.length - 1;
   }
@@ -191,6 +192,15 @@ function createGame() {
    */
   function getPlayerAction(blobId) {
     return playerActions.get(blobId);
+  }
+
+  /**
+   * Set the character for a blob
+   */
+  function setBlobCharacter(blobId, character) {
+    if (blobId >= 0 && blobId < blobs.length) {
+      blobs[blobId].character = character;
+    }
   }
 
   function step(actions, dt) {
@@ -323,6 +333,8 @@ function createGame() {
         mass: b.mass,
         foodsCollected: b.foodsCollected,
         alive: b.alive,
+        aiControlled: b.aiControlled,
+        character: b.character,
       })),
       terminated: terminated,
       winner: winner,
@@ -352,6 +364,7 @@ function createGame() {
     getBlobCount,
     setPlayerAction,
     getPlayerAction,
+    setBlobCharacter,
     MAP_SIZE,
     AGENT_RADIUS,
     INITIAL_MASS,

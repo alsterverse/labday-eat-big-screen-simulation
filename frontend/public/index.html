@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -43,6 +44,32 @@
       gap: 20px;
     }
 
+    @keyframes vibrate {
+      0% {
+        transform: translate(0);
+      }
+
+      20% {
+        transform: translate(-1px, 1px);
+      }
+
+      40% {
+        transform: translate(-1px, -1px);
+      }
+
+      60% {
+        transform: translate(1px, 1px);
+      }
+
+      80% {
+        transform: translate(1px, -1px);
+      }
+
+      100% {
+        transform: translate(0);
+      }
+    }
+
     #episode {
       font-size: 28px;
       font-weight: bold;
@@ -54,6 +81,7 @@
       text-align: center;
       color: #888;
       font-size: 14px;
+      animation: vibrate 0.1s linear infinite;
     }
 
     .section {
@@ -82,9 +110,17 @@
       height: 24px;
     }
 
-    .blob1-color { color: #3278dc; }
-    .blob2-color { color: #dc3232; }
-    .player-color { color: #32dc64; }
+    .blob1-color {
+      color: #3278dc;
+    }
+
+    .blob2-color {
+      color: #dc3232;
+    }
+
+    .player-color {
+      color: #32dc64;
+    }
 
     .win-count {
       font-size: 24px;
@@ -224,9 +260,17 @@
       color: #888;
     }
 
-    .leaderboard-rank.first { color: #ffd700; }
-    .leaderboard-rank.second { color: #c0c0c0; }
-    .leaderboard-rank.third { color: #cd7f32; }
+    .leaderboard-rank.first {
+      color: #ffd700;
+    }
+
+    .leaderboard-rank.second {
+      color: #c0c0c0;
+    }
+
+    .leaderboard-rank.third {
+      color: #cd7f32;
+    }
 
     .leaderboard-icon {
       width: 20px;
@@ -261,13 +305,44 @@
     }
 
     @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
     }
 
     .player-row {
       background: rgba(50, 220, 100, 0.1) !important;
       border: 2px solid #32dc64;
+    }
+
+    #leaderboard {
+      max-height: 400px;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    #leaderboard::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    #leaderboard::-webkit-scrollbar-track {
+      background: #1a1a1a;
+      border-radius: 4px;
+    }
+
+    #leaderboard::-webkit-scrollbar-thumb {
+      background: #444;
+      border-radius: 4px;
+    }
+
+    #leaderboard::-webkit-scrollbar-thumb:hover {
+      background: #555;
     }
 
     .mode-toggle {
@@ -299,11 +374,21 @@
       color: #fff;
     }
 
-    .spectator-only { display: block; }
-    .player-only { display: none; }
+    .spectator-only {
+      display: block;
+    }
 
-    body.player-mode .spectator-only { display: none; }
-    body.player-mode .player-only { display: block; }
+    .player-only {
+      display: none;
+    }
+
+    body.player-mode .spectator-only {
+      display: none;
+    }
+
+    body.player-mode .player-only {
+      display: block;
+    }
 
     /* Character Selection Overlay */
     #character-select-overlay {
@@ -373,6 +458,7 @@
     }
   </style>
 </head>
+
 <body>
   <!-- Character Selection Overlay (hidden by default) -->
   <div id="character-select-overlay" class="hidden">
@@ -410,54 +496,14 @@
     <div id="episode">Episode 1</div>
     <div id="steps">Step: 0 / 2000</div>
 
-    <div class="section spectator-only">
-      <div class="section-title">Wins</div>
-      <div class="blob-row">
-        <img src="assets/blob1.png" class="blob-icon" alt="Blob 1">
-        <span id="blob1-wins" class="win-count blob1-color">0</span>
-        <div id="blob1-trophies" class="trophies"></div>
-      </div>
-      <div class="blob-row">
-        <img src="assets/blob2.png" class="blob-icon" alt="Blob 2">
-        <span id="blob2-wins" class="win-count blob2-color">0</span>
-        <div id="blob2-trophies" class="trophies"></div>
-      </div>
-    </div>
+    <button id="mode-toggle" class="mode-toggle" onclick="window.switchMode()">Join as Player</button>
 
-    <div class="section spectator-only">
-      <div class="section-title">Blob 1</div>
-      <div class="blob-stats">
-        <div>
-          <div class="stat-label">Mass</div>
-          <div id="blob1-mass" class="stat-value blob1-color">5.00</div>
-        </div>
-        <div>
-          <div class="stat-label">Foods</div>
-          <div id="blob1-foods" class="stat-value">0</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="section spectator-only">
-      <div class="section-title">Blob 2</div>
-      <div class="blob-stats">
-        <div>
-          <div class="stat-label">Mass</div>
-          <div id="blob2-mass" class="stat-value blob2-color">5.00</div>
-        </div>
-        <div>
-          <div class="stat-label">Foods</div>
-          <div id="blob2-foods" class="stat-value">0</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="section player-only">
+    <div class="section">
       <div class="section-title">Leaderboard</div>
       <div id="leaderboard"></div>
     </div>
 
-    <div id="player-section" class="section" style="display: none;">
+    <div id="player-section" class="section player-only" style="display: none;">
       <div class="section-title player-color">You</div>
       <div class="blob-stats">
         <div>
@@ -481,7 +527,6 @@
         <div class="control-title">Player Controls</div>
         <kbd>A</kbd> Turn Left &nbsp; <kbd>D</kbd> Turn Right
       </div>
-      <button id="mode-toggle" class="mode-toggle" onclick="window.switchMode()">Join as Player</button>
     </div>
   </div>
 
@@ -494,4 +539,5 @@
   <script src="js/player-input.js"></script>
   <script src="js/client-main.js"></script>
 </body>
+
 </html>

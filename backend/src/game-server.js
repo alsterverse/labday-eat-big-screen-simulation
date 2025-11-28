@@ -95,15 +95,10 @@ class GameServer {
     // Step simulation
     const result = this.game.step(actions, dt);
 
-    // Emit events and handle player deaths
+    // Emit events (dead players will respawn when episode resets)
     if (this.onEvent) {
       for (const event of result.events) {
         this.onEvent(event);
-
-        // Schedule respawn for dead players
-        if (event.type === "death") {
-          this.schedulePlayerRespawn(event.blobId);
-        }
       }
     }
 
@@ -159,7 +154,8 @@ class GameServer {
   }
 
   addPlayerInternal(clientId, character) {
-    const blobIndex = this.game.addBlob();
+    const blobIndex = this.game.addBlob(false); // false = not AI controlled
+    this.game.setBlobCharacter(blobIndex, character);
     this.players.set(clientId, { blobIndex, lastAction: null, character });
     return blobIndex;
   }
