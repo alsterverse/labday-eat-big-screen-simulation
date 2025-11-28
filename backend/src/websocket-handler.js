@@ -47,16 +47,18 @@ class WebSocketHandler {
       const clientId = generateClientId();
       const url = new URL(req.url, `http://${req.headers.host}`);
       const isPlayer = url.pathname === "/play" || url.pathname === "/ws/play" || url.searchParams.get("mode") === "play";
+      const character = url.searchParams.get("character");
 
       let blobIndex = -1;
       if (isPlayer) {
-        blobIndex = this.gameServer.addPlayer(clientId);
+        blobIndex = this.gameServer.addPlayer(clientId, character);
       }
 
       this.clients.set(clientId, {
         ws,
         type: isPlayer ? "player" : "spectator",
         blobIndex,
+        character,
       });
 
       console.log(

@@ -9,6 +9,31 @@
   let playerBlobIndex = -1;
   let connected = false;
   let gameConstants = { mapSize: 100, initialMass: 5.0 };
+  let selectedCharacter = null;
+
+  function setupCharacterSelection() {
+    const overlay = document.getElementById("character-select-overlay");
+    const cards = document.querySelectorAll(".character-card");
+
+    cards.forEach(card => {
+      card.addEventListener("click", () => {
+        selectedCharacter = card.dataset.character;
+        overlay.classList.add("hidden");
+        connectToServer();
+      });
+    });
+  }
+
+  function connectToServer() {
+    WebSocketClient.connect(
+      isPlayerMode,
+      selectedCharacter,
+      handleInit,
+      handleState,
+      handleEvent,
+      handleDisconnect
+    );
+  }
 
   async function init() {
     console.log(`Initializing in ${isPlayerMode ? "player" : "spectator"} mode...`);
@@ -27,14 +52,13 @@
       Renderer.resize();
     });
 
-    // Connect to server
-    WebSocketClient.connect(
-      isPlayerMode,
-      handleInit,
-      handleState,
-      handleEvent,
-      handleDisconnect
-    );
+    // In player mode, wait for character selection before connecting
+    if (isPlayerMode) {
+      setupCharacterSelection();
+    } else {
+      // Spectator mode: connect immediately
+      connectToServer();
+    }
 
     // Start render loop
     requestAnimationFrame(renderLoop);
