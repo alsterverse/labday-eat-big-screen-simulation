@@ -46,7 +46,7 @@ class WebSocketHandler {
     this.wss.on("connection", (ws, req) => {
       const clientId = generateClientId();
       const url = new URL(req.url, `http://${req.headers.host}`);
-      const isPlayer = url.pathname === "/play" || url.searchParams.get("mode") === "play";
+      const isPlayer = url.pathname === "/play" || url.pathname === "/ws/play" || url.searchParams.get("mode") === "play";
 
       let blobIndex = -1;
       if (isPlayer) {

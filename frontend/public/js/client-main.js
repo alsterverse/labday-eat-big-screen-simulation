@@ -4,7 +4,7 @@
 
 (function () {
   // Determine mode from URL
-  const isPlayerMode = window.location.pathname === "/play";
+  const isPlayerMode = window.location.pathname === "/play" || window.location.pathname === "/play.html";
 
   let playerBlobIndex = -1;
   let connected = false;
