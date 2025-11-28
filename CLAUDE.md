@@ -44,18 +44,43 @@ deactivate
 
 ## Project Structure
 
-- **ml/blob_compete/** - Python competitive blob environment with DQN training
-- **blob_compete_js/** - JavaScript/Node.js version with WebSocket multiplayer
-- **venv/** - Python virtual environment (excluded from git)
+```
+/
+├── backend/          # Node.js WebSocket server
+│   ├── src/          # Server source code
+│   │   ├── index.js
+│   │   ├── game-server.js
+│   │   ├── websocket-handler.js
+│   │   └── shared/   # Game logic modules
+│   ├── weights/      # DQN model weights (JSON)
+│   ├── package.json
+│   └── Dockerfile
+│
+├── frontend/         # Static web client
+│   ├── public/
+│   │   ├── index.html
+│   │   ├── play.html
+│   │   ├── js/
+│   │   └── assets/
+│   └── Dockerfile
+│
+├── ml/               # Python ML training
+│   └── blob_compete/
+│
+├── docker-compose.yml
+├── nginx.conf
+├── deploy.sh
+└── venv/             # Python virtual environment
+```
 
-## blob_compete_js (Node.js Server)
+## Backend (Node.js Server)
 
-The JavaScript version runs as a Node.js WebSocket server with shared simulation.
+The backend runs the game simulation and AI controllers via WebSocket.
 
 ### Setup
 
 ```bash
-cd blob_compete_js
+cd backend
 npm install
 ```
 
@@ -66,34 +91,54 @@ npm start        # Start server on port 3000
 npm run dev      # Start with auto-reload
 ```
 
-### URLs
-
-- **Spectator mode:** http://localhost:3000/ - View the simulation
-- **Player mode:** http://localhost:3000/play - Join as a player blob
-
-### Structure
-
-```
-blob_compete_js/
-├── server/           # Node.js WebSocket server
-│   ├── index.js      # Express + WebSocket entry point
-│   ├── game-server.js # Game loop (30Hz)
-│   ├── websocket-handler.js
-│   └── shared/       # Game logic modules
-├── client/           # Browser client
-│   ├── index.html    # Spectator mode
-│   ├── play.html     # Player mode
-│   └── js/           # Client scripts
-├── weights/          # DQN model weights (JSON)
-└── package.json
-```
-
 ### How it works
 
-- Server runs 2 AI blobs continuously
-- Visiting `/play` spawns a player blob (despawns on disconnect)
-- Multiple players can join simultaneously
+- Server runs 2 AI blobs continuously at 30Hz tick rate
+- Broadcasts game state to all connected clients at 20Hz
+- Players connect via WebSocket at `/ws/` or `/ws/play`
 - Players control with A/D keys (turn left/right)
+
+## Frontend (Nginx + Static Files)
+
+The frontend serves static HTML/JS files and proxies WebSocket connections to the backend.
+
+### URLs (Production)
+
+- **Spectator mode:** http://206.189.108.247/ - View the simulation
+- **Player mode:** http://206.189.108.247/play - Join as a player blob
+
+## Deployment
+
+The app is deployed to a VPS using Docker Compose with two containers:
+- **backend**: Node.js WebSocket server (internal port 3000)
+- **frontend**: Nginx serving static files (port 80), proxies `/ws` to backend
+
+### Prerequisites
+
+1. SSH key authentication set up with the VPS:
+   ```bash
+   ssh-copy-id root@206.189.108.247
+   ```
+
+2. Docker installed on the VPS:
+   ```bash
+   ssh root@206.189.108.247 "apt update && apt install -y docker.io docker-compose-plugin && systemctl enable docker && systemctl start docker"
+   ```
+
+### Deploy
+
+```bash
+./deploy.sh
+```
+
+This script:
+1. Syncs `backend/` and `frontend/` directories to the VPS
+2. Syncs `docker-compose.yml` and `nginx.conf`
+3. Runs `docker compose up --build -d` on the server
+
+### URL
+
+http://206.189.108.247
 
 ## Important Notes
 

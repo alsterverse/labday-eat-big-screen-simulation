@@ -107,6 +107,22 @@ function createGame() {
     }
   }
 
+  function respawnBlob(blobId) {
+    if (blobId >= 0 && blobId < blobs.length) {
+      const margin = 10;
+      blobs[blobId] = {
+        x: margin + Math.random() * (MAP_SIZE - 2 * margin),
+        y: margin + Math.random() * (MAP_SIZE - 2 * margin),
+        angle: Math.random() * 2 * Math.PI - Math.PI,
+        mass: INITIAL_MASS,
+        foodsCollected: 0,
+        alive: true,
+      };
+      return true;
+    }
+    return false;
+  }
+
   function getBlobCount() {
     return blobs.length;
   }
@@ -331,6 +347,7 @@ function createGame() {
     getFullState,
     addBlob,
     removeBlob,
+    respawnBlob,
     getBlobCount,
     setPlayerAction,
     getPlayerAction,

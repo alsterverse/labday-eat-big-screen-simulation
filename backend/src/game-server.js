@@ -12,6 +12,7 @@ const TICK_INTERVAL = 1000 / TICK_RATE;
 const BROADCAST_RATE = 20; // State broadcasts per second
 const BROADCAST_INTERVAL = 1000 / BROADCAST_RATE;
 const RESET_DELAY = 2000; // 2 seconds between episodes
+const PLAYER_RESPAWN_DELAY = 3000; // 3 seconds before player respawns
 
 class GameServer {
   constructor() {
@@ -25,6 +26,7 @@ class GameServer {
     this.lastBroadcast = Date.now();
     this.tickInterval = null;
     this.resetTimer = null;
+    this.respawnTimers = new Map(); // clientId -> timer
     this.done = false;
   }
 
@@ -93,10 +95,15 @@ class GameServer {
     // Step simulation
     const result = this.game.step(actions, dt);
 
-    // Emit events
+    // Emit events and handle player deaths
     if (this.onEvent) {
       for (const event of result.events) {
         this.onEvent(event);
+
+        // Schedule respawn for dead players
+        if (event.type === "death") {
+          this.schedulePlayerRespawn(event.blobId);
+        }
       }
     }
 
@@ -174,6 +181,12 @@ class GameServer {
     const player = this.players.get(clientId);
     if (!player) return;
 
+    // Clear any pending respawn timer
+    if (this.respawnTimers.has(clientId)) {
+      clearTimeout(this.respawnTimers.get(clientId));
+      this.respawnTimers.delete(clientId);
+    }
+
     const removedIndex = player.blobIndex;
     this.game.removeBlob(removedIndex);
     this.players.delete(clientId);
@@ -195,6 +208,51 @@ class GameServer {
 
     // Notify affected players of their new indices
     return { removedIndex };
+  }
+
+  schedulePlayerRespawn(blobId) {
+    // Only respawn player blobs (index >= 2, since first 2 are AI)
+    if (blobId < 2) return;
+
+    // Find the clientId for this blobId
+    let clientIdToRespawn = null;
+    for (const [clientId, player] of this.players) {
+      if (player.blobIndex === blobId) {
+        clientIdToRespawn = clientId;
+        break;
+      }
+    }
+
+    if (!clientIdToRespawn) return;
+
+    // Clear any existing respawn timer
+    if (this.respawnTimers.has(clientIdToRespawn)) {
+      clearTimeout(this.respawnTimers.get(clientIdToRespawn));
+    }
+
+    // Schedule respawn
+    const timer = setTimeout(() => {
+      this.respawnTimers.delete(clientIdToRespawn);
+
+      // Check if player is still connected
+      const player = this.players.get(clientIdToRespawn);
+      if (!player) return;
+
+      // Respawn the blob
+      if (this.game.respawnBlob(player.blobIndex)) {
+        console.log(`Player ${clientIdToRespawn} respawned as blob ${player.blobIndex}`);
+
+        if (this.onEvent) {
+          this.onEvent({
+            type: "playerRespawned",
+            clientId: clientIdToRespawn,
+            blobIndex: player.blobIndex,
+          });
+        }
+      }
+    }, PLAYER_RESPAWN_DELAY);
+
+    this.respawnTimers.set(clientIdToRespawn, timer);
   }
 
   setPlayerAction(clientId, action) {
