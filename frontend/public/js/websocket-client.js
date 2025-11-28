@@ -15,7 +15,7 @@ const WebSocketClient = (function () {
     callbacks = { onInit, onState, onEvent, onDisconnect };
 
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    const path = isPlayerMode ? "/play" : "/";
+    const path = isPlayerMode ? "/ws/play" : "/ws/";
     const wsUrl = `${protocol}//${location.host}${path}`;
 
     console.log("Connecting to:", wsUrl);

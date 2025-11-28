@@ -1,0 +1,7 @@
+[build]
+  publish = "blob_compete_js"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
