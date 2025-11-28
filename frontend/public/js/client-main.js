@@ -3,12 +3,17 @@
  */
 
 (function () {
-  // Determine mode from URL
-  const isPlayerMode = window.location.pathname === "/play" || window.location.pathname === "/play.html";
+  // Determine mode from URL query param
+  function getIsPlayerMode() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("mode") === "play";
+  }
 
+  let isPlayerMode = getIsPlayerMode();
   let playerBlobIndex = -1;
   let connected = false;
   let gameConstants = { mapSize: 100, initialMass: 5.0 };
+  let initialized = false;
 
   async function init() {
     console.log(`Initializing in ${isPlayerMode ? "player" : "spectator"} mode...`);
@@ -17,15 +22,25 @@
     UI.init();
     UI.setPlayerMode(isPlayerMode);
     UI.setConnectionStatus(false);
+    UI.updateModeToggle(isPlayerMode);
 
-    // Initialize renderer
-    const canvas = document.getElementById("game-canvas");
-    await Renderer.init(canvas);
+    // Update body class for CSS mode switching
+    document.body.classList.toggle("player-mode", isPlayerMode);
 
-    // Handle window resize
-    window.addEventListener("resize", () => {
-      Renderer.resize();
-    });
+    // Initialize renderer only once
+    if (!initialized) {
+      const canvas = document.getElementById("game-canvas");
+      await Renderer.init(canvas);
+
+      // Handle window resize
+      window.addEventListener("resize", () => {
+        Renderer.resize();
+      });
+    }
+
+    // Reset state
+    playerBlobIndex = -1;
+    Interpolator.reset();
 
     // Connect to server
     WebSocketClient.connect(
@@ -36,11 +51,40 @@
       handleDisconnect
     );
 
-    // Start render loop
-    requestAnimationFrame(renderLoop);
+    // Start render loop only once
+    if (!initialized) {
+      requestAnimationFrame(renderLoop);
+      initialized = true;
+    }
 
     console.log("Client initialized");
   }
+
+  function switchMode() {
+    // Toggle mode
+    isPlayerMode = !isPlayerMode;
+
+    // Update URL without reload
+    const url = new URL(window.location.href);
+    if (isPlayerMode) {
+      url.searchParams.set("mode", "play");
+    } else {
+      url.searchParams.delete("mode");
+    }
+    history.pushState({}, "", url);
+
+    // Deactivate player input
+    PlayerInput.deactivate();
+
+    // Disconnect current WebSocket
+    WebSocketClient.disconnect();
+
+    // Reinitialize with new mode
+    init();
+  }
+
+  // Expose switchMode globally for the button
+  window.switchMode = switchMode;
 
   function handleInit(data) {
     console.log("Received init:", data);

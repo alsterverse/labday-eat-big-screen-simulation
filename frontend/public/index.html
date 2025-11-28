@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blob Compete - Spectator</title>
+  <title>Blob Compete</title>
   <style>
     * {
       margin: 0;
@@ -181,21 +181,104 @@
       line-height: 1.8;
     }
 
-    .join-link {
+    .control-group {
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #333;
+    }
+
+    .control-group:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+
+    .control-title {
+      color: #888;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 5px;
+    }
+
+    #controls kbd {
+      background: #333;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+
+    .leaderboard-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      margin-bottom: 5px;
+      background: #1a1a1a;
+      border-radius: 5px;
+    }
+
+    .leaderboard-rank {
+      font-weight: bold;
+      font-size: 16px;
+      min-width: 25px;
+      color: #888;
+    }
+
+    .leaderboard-rank.first { color: #ffd700; }
+    .leaderboard-rank.second { color: #c0c0c0; }
+    .leaderboard-rank.third { color: #cd7f32; }
+
+    .leaderboard-icon {
+      width: 20px;
+      height: 20px;
+    }
+
+    .leaderboard-name {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .leaderboard-food {
+      font-size: 16px;
+      font-weight: bold;
+      color: #32dc32;
+    }
+
+    .mode-toggle {
       display: block;
       margin-top: 15px;
       padding: 10px;
       background: #32dc64;
       color: #000;
-      text-decoration: none;
+      border: none;
       border-radius: 5px;
       font-weight: bold;
       text-align: center;
+      cursor: pointer;
+      width: 100%;
+      font-size: 14px;
     }
 
-    .join-link:hover {
+    .mode-toggle:hover {
       background: #28b854;
     }
+
+    .mode-toggle.spectate {
+      background: #333;
+      color: #aaa;
+    }
+
+    .mode-toggle.spectate:hover {
+      background: #444;
+      color: #fff;
+    }
+
+    .spectator-only { display: block; }
+    .player-only { display: none; }
+
+    body.player-mode .spectator-only { display: none; }
+    body.player-mode .player-only { display: block; }
   </style>
 </head>
 <body>
@@ -208,7 +291,7 @@
     <div id="episode">Episode 1</div>
     <div id="steps">Step: 0 / 2000</div>
 
-    <div class="section">
+    <div class="section spectator-only">
       <div class="section-title">Wins</div>
       <div class="blob-row">
         <img src="assets/blob1.png" class="blob-icon" alt="Blob 1">
@@ -222,7 +305,7 @@
       </div>
     </div>
 
-    <div class="section">
+    <div class="section spectator-only">
       <div class="section-title">Blob 1</div>
       <div class="blob-stats">
         <div>
@@ -236,7 +319,7 @@
       </div>
     </div>
 
-    <div class="section">
+    <div class="section spectator-only">
       <div class="section-title">Blob 2</div>
       <div class="blob-stats">
         <div>
@@ -248,6 +331,11 @@
           <div id="blob2-foods" class="stat-value">0</div>
         </div>
       </div>
+    </div>
+
+    <div class="section player-only">
+      <div class="section-title">Leaderboard</div>
+      <div id="leaderboard"></div>
     </div>
 
     <div id="player-section" class="section" style="display: none;">
@@ -270,7 +358,11 @@
     <div id="connection-status" class="connection-status disconnected">Disconnected</div>
 
     <div id="controls">
-      <a href="/play.html" class="join-link">Join as Player</a>
+      <div class="control-group player-only">
+        <div class="control-title">Player Controls</div>
+        <kbd>A</kbd> Turn Left &nbsp; <kbd>D</kbd> Turn Right
+      </div>
+      <button id="mode-toggle" class="mode-toggle" onclick="window.switchMode()">Join as Player</button>
     </div>
   </div>
 

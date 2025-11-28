@@ -16,6 +16,7 @@ const UI = (function () {
       playerMass: document.getElementById("player-mass"),
       playerFoods: document.getElementById("player-foods"),
       connectionStatus: document.getElementById("connection-status"),
+      modeToggle: document.getElementById("mode-toggle"),
     };
   }
 
@@ -111,10 +112,23 @@ const UI = (function () {
     }
   }
 
+  function updateModeToggle(isPlayerMode) {
+    if (elements.modeToggle) {
+      if (isPlayerMode) {
+        elements.modeToggle.textContent = "Switch to Spectator";
+        elements.modeToggle.className = "mode-toggle spectate";
+      } else {
+        elements.modeToggle.textContent = "Join as Player";
+        elements.modeToggle.className = "mode-toggle";
+      }
+    }
+  }
+
   return {
     init,
     update,
     setPlayerMode,
     setConnectionStatus,
+    updateModeToggle,
   };
 })();
