@@ -28,8 +28,8 @@ const WebSocketClient = (function () {
     return sessionToken;
   }
 
-  function connect(isPlayerMode, character, onInit, onState, onEvent, onDisconnect, onKickedToSpectate) {
-    callbacks = { onInit, onState, onEvent, onDisconnect, onKickedToSpectate };
+  function connect(isPlayerMode, character, onInit, onState, onEvent, onDisconnect, onKickedToSpectate, onStats) {
+    callbacks = { onInit, onState, onEvent, onDisconnect, onKickedToSpectate, onStats };
     currentCharacter = character;
 
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
@@ -100,7 +100,7 @@ const WebSocketClient = (function () {
         reconnectAttempts++;
         console.log(`Reconnecting in ${RECONNECT_DELAY}ms (attempt ${reconnectAttempts})...`);
         setTimeout(() => {
-          connect(isPlayerMode, currentCharacter, onInit, onState, onEvent, onDisconnect, callbacks.onKickedToSpectate);
+          connect(isPlayerMode, currentCharacter, onInit, onState, onEvent, onDisconnect, callbacks.onKickedToSpectate, callbacks.onStats);
         }, RECONNECT_DELAY);
       }
     };
@@ -161,6 +161,12 @@ const WebSocketClient = (function () {
         console.log("Kicked to spectate:", message.reason);
         if (callbacks.onKickedToSpectate) {
           callbacks.onKickedToSpectate(message);
+        }
+        break;
+
+      case "stats":
+        if (callbacks.onStats) {
+          callbacks.onStats(message.stats);
         }
         break;
     }

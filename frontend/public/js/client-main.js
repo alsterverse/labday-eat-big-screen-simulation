@@ -47,7 +47,8 @@
       handleState,
       handleEvent,
       handleDisconnect,
-      handleKickedToSpectate
+      handleKickedToSpectate,
+      handleStats
     );
   }
 
@@ -196,6 +197,10 @@
         console.log(`Player left: ${event.clientId} (was blob ${event.blobIndex})`);
         break;
     }
+  }
+
+  function handleStats(stats) {
+    UI.update(stats, playerBlobIndex);
   }
 
   function handleDisconnect() {

@@ -35,6 +35,12 @@ class WebSocketHandler {
       this.broadcastBinary(encodeState(state));
     };
 
+    // Broadcast stats at lower frequency (5Hz) via JSON
+    this.statsInterval = setInterval(() => {
+      const { stats } = this.gameServer.getFullState();
+      this.broadcast({ type: "stats", stats });
+    }, 200);
+
     // Handle game events
     this.gameServer.onEvent = (event) => {
       this.broadcast({ type: "event", event });
