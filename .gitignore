@@ -12,17 +12,20 @@ ENV/
 *.pth
 *.pkl
 
-# Keep numpy weight files for web deployment
+# Keep numpy weight files
 !*_weights.npz
 
-# Pygbag build output
-blob_compete/build/
+# ML build output
+ml/blob_compete/build/
 
 # Training output images
-*.png
+ml/**/*.png
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+
+# Netlify
+.netlify/
