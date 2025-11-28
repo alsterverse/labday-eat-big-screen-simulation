@@ -323,9 +323,17 @@ const Renderer = (function () {
 
   function triggerBounce(blobId) {
     while (blobAnimations.length <= blobId) {
-      blobAnimations.push({ scale: 1.0, bounceTime: 0 });
+      blobAnimations.push({ scale: 1.0, bounceTime: 0, spinAngle: 0, spinTime: 0 });
     }
     blobAnimations[blobId].bounceTime = 0.4;
+  }
+
+  function triggerSpin(blobId) {
+    while (blobAnimations.length <= blobId) {
+      blobAnimations.push({ scale: 1.0, bounceTime: 0, spinAngle: 0, spinTime: 0 });
+    }
+    blobAnimations[blobId].spinTime = 0.5;
+    blobAnimations[blobId].spinAngle = 0;
   }
 
   function playEatSound(character) {
@@ -381,6 +389,15 @@ const Renderer = (function () {
         blobAnimations[i].scale = 1.0 + bounce;
       } else {
         blobAnimations[i].scale = 1.0;
+      }
+
+      if (blobAnimations[i].spinTime > 0) {
+        blobAnimations[i].spinTime -= dt;
+        const spinDuration = 0.5;
+        const t = 1 - blobAnimations[i].spinTime / spinDuration;
+        blobAnimations[i].spinAngle = t * Math.PI * 2;
+      } else {
+        blobAnimations[i].spinAngle = 0;
       }
     }
 
@@ -476,7 +493,7 @@ const Renderer = (function () {
       const screen = worldToScreen(blob.x, blob.y);
 
       while (blobAnimations.length <= i) {
-        blobAnimations.push({ scale: 1.0, bounceTime: 0 });
+        blobAnimations.push({ scale: 1.0, bounceTime: 0, spinAngle: 0, spinTime: 0 });
       }
 
       const baseSize = agentRadius * gameScale * 2;
@@ -486,7 +503,8 @@ const Renderer = (function () {
 
       if (blob.character === "linda" && ModelRenderer.isLoaded("linda")) {
         const modelScale = size * 1.0;
-        ModelRenderer.render("linda", screen.x, screen.y, modelScale, blob.angle, viewportWidth, viewportHeight);
+        const spinAngle = blobAnimations[i].spinAngle || 0;
+        ModelRenderer.render("linda", screen.x, screen.y, modelScale, blob.angle, viewportWidth, viewportHeight, spinAngle);
       } else {
         let texName;
         if (blob.character) {
@@ -535,6 +553,7 @@ const Renderer = (function () {
     updateAnimations,
     updateParticles,
     triggerBounce,
+    triggerSpin,
     playEatSound,
     spawnExplosion,
     worldToScreen,

@@ -280,6 +280,17 @@ const ModelRenderer = (function () {
     ]);
   }
 
+  function mat4FromRotationZ(angle) {
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    return new Float32Array([
+      c, s, 0, 0,
+      -s, c, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1
+    ]);
+  }
+
   function mat4Ortho(left, right, bottom, top, near, far) {
     const lr = 1 / (left - right);
     const bt = 1 / (bottom - top);
@@ -319,7 +330,7 @@ const ModelRenderer = (function () {
     ]);
   }
 
-  function render(modelName, x, y, scale, rotation, viewportWidth, viewportHeight) {
+  function render(modelName, x, y, scale, rotation, viewportWidth, viewportHeight, spinAngle = 0) {
     const model = loadedModels[modelName];
     if (!model) {
       console.warn('Model not found:', modelName);
@@ -351,22 +362,26 @@ const ModelRenderer = (function () {
 
     // Apply rotation around Y axis (blob direction) and X axis (isometric tilt)
     const yAngle = -rotation + Math.PI / 2;
-    const cosY = Math.cos(yAngle);
-    const sinY = Math.sin(yAngle);
 
     // Isometric camera angle - tilt to see the face
     const isoTilt = Math.PI / 3; // 60 degrees from horizontal
-    const cosX = Math.cos(isoTilt);
-    const sinX = Math.sin(isoTilt);
 
-    // Combined rotation: first Y rotation (blob direction), then X rotation (isometric tilt)
-    // R = Rx * Ry
-    const rotatedMatrix = new Float32Array([
-      s * cosY, s * sinX * sinY, s * cosX * sinY, 0,
-      0, s * cosX, -s * sinX, 0,
-      -s * sinY, s * sinX * cosY, s * cosX * cosY, 0,
-      ndcX, ndcY, 0, 1
-    ]);
+    // Build rotation matrix: scale * translate * Rx_iso * Ry_direction * Rz_base
+    // Base Z rotation (180°) to correct model orientation so it faces up
+    const baseRotation = mat4FromRotationZ(Math.PI / 2);
+    const yRotation = mat4FromRotationY(yAngle);
+    const xRotation = mat4FromRotationX(isoTilt);
+    const spinRotation = mat4FromRotationX(spinAngle);
+    const scaleMatrix = mat4FromScaling(s, s, s);
+    const translateMatrix = mat4FromTranslation(ndcX, ndcY, 0);
+
+    // Combine: translate * scale * Rx * Ry * spin * Rz_base
+    let rotatedMatrix = mat4Create();
+    mat4Multiply(rotatedMatrix, spinRotation, baseRotation);
+    mat4Multiply(rotatedMatrix, yRotation, rotatedMatrix);
+    mat4Multiply(rotatedMatrix, xRotation, rotatedMatrix);
+    mat4Multiply(rotatedMatrix, scaleMatrix, rotatedMatrix);
+    mat4Multiply(rotatedMatrix, translateMatrix, rotatedMatrix);
 
     const viewMatrix = mat4Create();
     const projectionMatrix = mat4Create();
@@ -563,7 +578,7 @@ const ModelRenderer = (function () {
       previewGl.enable(previewGl.DEPTH_TEST);
       previewGl.depthFunc(previewGl.LEQUAL);
 
-      const scale = 0.8;
+      const scale = 2.8;
       const cosY = Math.cos(previewRotation);
       const sinY = Math.sin(previewRotation);
 
