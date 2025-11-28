@@ -11,8 +11,20 @@ ENV/
 # Model files
 *.pkl
 
+# Keep numpy weight files
+!*_weights.npz
+
+# ML build output
+ml/blob_compete/build/
+
+# Training output images
+ml/**/*.png
+
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+
+# Netlify
+.netlify/
