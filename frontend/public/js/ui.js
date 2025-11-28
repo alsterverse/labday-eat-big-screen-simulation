@@ -42,10 +42,13 @@ const UI = (function () {
       const sorted = stats.blobs
         .map((blob, index) => ({
           index,
-          name: `Blob ${index + 1}`,
+          // Add "AI" suffix if the blob is controlled by AI (not the player)
+          name: index === playerBlobIndex ? `Blob ${index + 1}` : `AI Blob ${index + 1}`,
           foods: blob.foodsCollected || 0,
+          character: blob.character,
           // Use the correct character icon if available, otherwise default
-          icon: blob.character ? `assets/${blob.character}.png` : `assets/blob${index + 1}.png`
+          // blob.character is the filename like "blob1", "blob2", etc.
+          icon: blob.character ? `assets/${blob.character}.png` : `assets/blob${(index % 2) + 1}.png`
         }))
         .sort((a, b) => b.foods - a.foods);
 
