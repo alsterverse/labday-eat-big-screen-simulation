@@ -34,6 +34,10 @@ const Renderer = (function () {
   let mapSize = 100;
   let initialMass = 5.0;
 
+  // Camera offset for following player on mobile
+  let cameraOffsetX = 0;
+  let cameraOffsetY = 0;
+
   const spriteVertexShader = `#version 300 es
     in vec2 a_position;
     in vec2 a_texCoord;
@@ -261,8 +265,8 @@ const Renderer = (function () {
     const offsetX = (viewportWidth - mapSize * gameScale) / 2;
     const offsetY = (viewportHeight - mapSize * gameScale) / 2;
     return {
-      x: offsetX + x * gameScale,
-      y: offsetY + y * gameScale,
+      x: offsetX + x * gameScale - cameraOffsetX,
+      y: offsetY + y * gameScale - cameraOffsetY,
     };
   }
 
@@ -475,6 +479,32 @@ const Renderer = (function () {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     const agentRadius = state.agentRadius || 2.5;
+
+    // Update camera to follow player on mobile
+    const isMobile = PlayerInput.isMobileDevice();
+    if (isMobile && playerBlobIndex >= 0) {
+      if (state.blobs[playerBlobIndex]?.alive) {
+        const playerBlob = state.blobs[playerBlobIndex];
+        const targetX = playerBlob.x * gameScale - viewportWidth / 2;
+        const targetY = playerBlob.y * gameScale - viewportHeight / 2;
+
+        // Smooth camera movement - faster lerp for more responsive feel
+        const lerpFactor = 0.2;
+        cameraOffsetX += (targetX - cameraOffsetX) * lerpFactor;
+        cameraOffsetY += (targetY - cameraOffsetY) * lerpFactor;
+
+        // Clamp camera to map bounds
+        const mapPixelWidth = mapSize * gameScale;
+        const mapPixelHeight = mapSize * gameScale;
+        cameraOffsetX = Math.max(-(viewportWidth - mapPixelWidth) / 2, Math.min(cameraOffsetX, (viewportWidth - mapPixelWidth) / 2));
+        cameraOffsetY = Math.max(-(viewportHeight - mapPixelHeight) / 2, Math.min(cameraOffsetY, (viewportHeight - mapPixelHeight) / 2));
+      }
+      // Keep camera at last position when dead (don't reset to 0)
+    } else {
+      // Reset camera on desktop or when not playing
+      cameraOffsetX = 0;
+      cameraOffsetY = 0;
+    }
 
     // Draw foods
     for (let i = 0; i < state.foods.length; i++) {
