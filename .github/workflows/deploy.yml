@@ -20,22 +20,9 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to VPS
-        run: |
-          rsync -avz --delete --exclude 'node_modules/' \
-            -e "ssh -i ~/.ssh/deploy_key" \
-            backend/ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/root/app/backend/
-
-          rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key" \
-            frontend/ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/root/app/frontend/
-
-          rsync -avz \
-            -e "ssh -i ~/.ssh/deploy_key" \
-            docker-compose.yml nginx.conf \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/root/app/
-
-      - name: Rebuild and restart containers
-        run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-            "cd /root/app && docker compose up --build -d"
+      - name: Deploy
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          SSH_KEY: ~/.ssh/deploy_key
+        run: ./deploy.sh
