@@ -9,14 +9,7 @@ const UI = (function () {
     elements = {
       episode: document.getElementById("episode"),
       steps: document.getElementById("steps"),
-      blob1Wins: document.getElementById("blob1-wins"),
-      blob2Wins: document.getElementById("blob2-wins"),
-      blob1Trophies: document.getElementById("blob1-trophies"),
-      blob2Trophies: document.getElementById("blob2-trophies"),
-      blob1Mass: document.getElementById("blob1-mass"),
-      blob2Mass: document.getElementById("blob2-mass"),
-      blob1Foods: document.getElementById("blob1-foods"),
-      blob2Foods: document.getElementById("blob2-foods"),
+      leaderboard: document.getElementById("leaderboard"),
       status: document.getElementById("status"),
       modeIndicator: document.getElementById("mode-indicator"),
       playerSection: document.getElementById("player-section"),
@@ -43,17 +36,31 @@ const UI = (function () {
     elements.episode.textContent = `Episode ${stats.episode}`;
     elements.steps.textContent = `Step: ${stats.steps} / ${stats.maxSteps}`;
 
-    elements.blob1Wins.textContent = stats.wins[0];
-    elements.blob2Wins.textContent = stats.wins[1];
+    // Create leaderboard sorted by food collected (descending)
+    if (elements.leaderboard && stats.blobs) {
+      const sorted = stats.blobs
+        .map((blob, index) => ({
+          index,
+          name: `Blob ${index + 1}`,
+          foods: blob.foodsCollected || 0,
+          icon: `assets/blob${index + 1}.png`
+        }))
+        .sort((a, b) => b.foods - a.foods);
 
-    elements.blob1Trophies.innerHTML = createTrophies(stats.wins[0]);
-    elements.blob2Trophies.innerHTML = createTrophies(stats.wins[1]);
-
-    elements.blob1Mass.textContent = stats.blobs[0]?.mass?.toFixed(2) || "0.00";
-    elements.blob2Mass.textContent = stats.blobs[1]?.mass?.toFixed(2) || "0.00";
-
-    elements.blob1Foods.textContent = stats.blobs[0]?.foodsCollected || 0;
-    elements.blob2Foods.textContent = stats.blobs[1]?.foodsCollected || 0;
+      let leaderboardHTML = '';
+      sorted.forEach((blob, rank) => {
+        const rankClass = rank === 0 ? 'first' : rank === 1 ? 'second' : rank === 2 ? 'third' : '';
+        leaderboardHTML += `
+          <div class="leaderboard-row">
+            <span class="leaderboard-rank ${rankClass}">${rank + 1}</span>
+            <img src="${blob.icon}" class="leaderboard-icon" alt="${blob.name}">
+            <span class="leaderboard-name">${blob.name}</span>
+            <span class="leaderboard-food">🍎 ${blob.foods}</span>
+          </div>
+        `;
+      });
+      elements.leaderboard.innerHTML = leaderboardHTML;
+    }
 
     if (elements.playerSection && playerBlobIndex !== -1 && stats.blobs[playerBlobIndex]) {
       elements.playerSection.style.display = "block";
