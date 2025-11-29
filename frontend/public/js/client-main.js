@@ -122,10 +122,24 @@
   // Expose switchMode globally for the button
   window.switchMode = switchMode;
 
-  // Graphics mode toggle (G key)
+  // Toggle panel visibility
+  function togglePanel() {
+    const panel = document.getElementById("stats-panel");
+    panel.classList.toggle("hidden");
+  }
+
+  // Expose togglePanel globally for the button
+  window.togglePanel = togglePanel;
+
+  // Keyboard shortcuts
   document.addEventListener("keydown", (e) => {
+    // Graphics mode toggle (G key)
     if (e.key === "g" || e.key === "G") {
       Renderer.cycleMode();
+    }
+    // Panel toggle (H key)
+    if (e.key === "h" || e.key === "H") {
+      togglePanel();
     }
   });
 
