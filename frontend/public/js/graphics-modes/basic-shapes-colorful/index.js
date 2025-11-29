@@ -32,8 +32,14 @@ const BasicShapesColorfulMode = {
 
   _initialized: false,
 
+  // Trail tracking
+  trails: new Map(), // blobId -> array of {x, y, angle, size}
+  trailLength: 15, // Number of trail segments
+  trailSpacing: 8, // Minimum distance between trail points
+
   async init(renderer) {
-    // No special init needed for shapes mode
+    // Clear trails on init
+    this.trails.clear();
   },
 
   async loadAssets(renderer) {
@@ -69,7 +75,11 @@ const BasicShapesColorfulMode = {
 
     for (let i = 0; i < blobs.length; i++) {
       const blob = blobs[i];
-      if (!blob.alive) continue;
+      if (!blob.alive) {
+        // Clear trail for dead blobs
+        this.trails.delete(i);
+        continue;
+      }
 
       const screen = renderer.worldToScreen(blob.x, blob.y);
 
@@ -83,7 +93,45 @@ const BasicShapesColorfulMode = {
         idx < 3 ? c / 255 : c
       );
 
-      // Draw as arrow pointing in direction of movement
+      // Update trail history
+      if (!this.trails.has(i)) {
+        this.trails.set(i, []);
+      }
+      const trail = this.trails.get(i);
+
+      // Add new point if moved enough distance
+      const lastPoint = trail[0];
+      if (!lastPoint) {
+        trail.unshift({ x: screen.x, y: screen.y, angle: blob.angle, size });
+      } else {
+        const dx = screen.x - lastPoint.x;
+        const dy = screen.y - lastPoint.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist >= this.trailSpacing) {
+          trail.unshift({ x: screen.x, y: screen.y, angle: blob.angle, size });
+          // Keep trail at max length
+          while (trail.length > this.trailLength) {
+            trail.pop();
+          }
+        }
+      }
+
+      // Draw trail as continuous tapered line
+      for (let t = trail.length - 1; t >= 1; t--) {
+        const p1 = trail[t];
+        const p2 = trail[t - 1];
+        const progress = t / this.trailLength; // 1 = oldest, 0 = newest
+        const nextProgress = (t - 1) / this.trailLength;
+
+        const opacity = 0.5 * (1 - progress);
+        const width1 = size * 0.4 * (1 - progress);
+        const width2 = size * 0.4 * (1 - nextProgress);
+
+        const trailColor = [color[0], color[1], color[2], opacity];
+        renderer.drawTaperedLine(p1.x, p1.y, p2.x, p2.y, width1, width2, trailColor);
+      }
+
+      // Draw main arrow on top
       renderer.drawArrow(screen.x, screen.y, size, blob.angle, color);
     }
   },

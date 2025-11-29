@@ -482,6 +482,42 @@ const Renderer = (function () {
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
+  function drawTaperedLine(x1, y1, x2, y2, width1, width2, color) {
+    // Draw a line segment that tapers from width1 at (x1,y1) to width2 at (x2,y2)
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 0.001) return;
+
+    // Perpendicular unit vector
+    const px = -dy / len;
+    const py = dx / len;
+
+    // Four corners of the quad
+    const halfW1 = width1 / 2;
+    const halfW2 = width2 / 2;
+
+    const vertices = new Float32Array([
+      x1 + px * halfW1, y1 + py * halfW1,
+      x1 - px * halfW1, y1 - py * halfW1,
+      x2 + px * halfW2, y2 + py * halfW2,
+      x2 - px * halfW2, y2 - py * halfW2,
+    ]);
+
+    gl.useProgram(solidProgram);
+    gl.uniform2f(gl.getUniformLocation(solidProgram, "u_resolution"), viewportWidth, viewportHeight);
+    gl.uniform4fv(gl.getUniformLocation(solidProgram, "u_color"), color);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, triangleBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+
+    const posLoc = gl.getAttribLocation(solidProgram, "a_position");
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+
   function triggerBounce(blobId) {
     while (blobAnimations.length <= blobId) {
       blobAnimations.push({ scale: 1.0, bounceTime: 0, spinAngle: 0, spinTime: 0 });
@@ -714,6 +750,7 @@ const Renderer = (function () {
     drawCircle,
     drawCircleOutline,
     drawArrow,
+    drawTaperedLine,
     renderParticles,
     loadTexture,
 
