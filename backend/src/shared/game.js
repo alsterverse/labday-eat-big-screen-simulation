@@ -288,10 +288,25 @@ function createGame() {
       blob.x += Math.cos(blob.angle) * speed;
       blob.y += Math.sin(blob.angle) * speed;
 
-      if (blob.x < 0) blob.x += MAP_SIZE;
-      if (blob.x >= MAP_SIZE) blob.x -= MAP_SIZE;
-      if (blob.y < 0) blob.y += MAP_SIZE;
-      if (blob.y >= MAP_SIZE) blob.y -= MAP_SIZE;
+      // Bounce off vertical walls (left/right)
+      if (blob.x < 0) {
+        blob.x = -blob.x;
+        blob.angle = Math.PI - blob.angle;
+      }
+      if (blob.x >= MAP_SIZE) {
+        blob.x = 2 * MAP_SIZE - blob.x;
+        blob.angle = Math.PI - blob.angle;
+      }
+
+      // Bounce off horizontal walls (top/bottom)
+      if (blob.y < 0) {
+        blob.y = -blob.y;
+        blob.angle = -blob.angle;
+      }
+      if (blob.y >= MAP_SIZE) {
+        blob.y = 2 * MAP_SIZE - blob.y;
+        blob.angle = -blob.angle;
+      }
 
       blob.mass -= massDecay;
     }
