@@ -122,6 +122,13 @@
   // Expose switchMode globally for the button
   window.switchMode = switchMode;
 
+  // Graphics mode toggle (G key)
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "g" || e.key === "G") {
+      Renderer.cycleMode();
+    }
+  });
+
   function handleInit(data) {
     console.log("Received init:", data);
     connected = true;

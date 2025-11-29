@@ -1,6 +1,6 @@
 /**
  * WebGL2 Renderer for Blob Compete (Client Version)
- * Adapted to receive state from server
+ * Supports pluggable graphics modes
  */
 
 const Renderer = (function () {
@@ -13,13 +13,13 @@ const Renderer = (function () {
   let quadBuffer = null;
   let particleBuffer = null;
   let triangleBuffer = null;
+  let circleBuffer = null;
 
   const textures = {};
   let particles = [];
   const MAX_PARTICLES = 500;
 
   let blobAnimations = [];
-  const foodRotations = [];
   let arrowBobTime = 0;
 
   let audioContext = null;
@@ -37,6 +37,11 @@ const Renderer = (function () {
   // Camera offset for following player on mobile
   let cameraOffsetX = 0;
   let cameraOffsetY = 0;
+
+  // Graphics modes
+  const modes = {};
+  let currentMode = null;
+  let currentModeName = "imageBasedFunny";
 
   const spriteVertexShader = `#version 300 es
     in vec2 a_position;
@@ -169,6 +174,57 @@ const Renderer = (function () {
     });
   }
 
+  // Mode management
+  function registerMode(mode) {
+    modes[mode.id] = mode;
+  }
+
+  async function setMode(modeName) {
+    if (!modes[modeName]) {
+      console.error(`Unknown graphics mode: ${modeName}`);
+      return false;
+    }
+
+    // Deactivate current mode
+    if (currentMode) {
+      currentMode.deactivate();
+    }
+
+    // Switch to new mode
+    currentMode = modes[modeName];
+    currentModeName = modeName;
+
+    // Initialize if first time
+    if (!currentMode._initialized) {
+      await currentMode.init(publicAPI);
+      await currentMode.loadAssets(publicAPI);
+      currentMode._initialized = true;
+    }
+
+    // Activate
+    currentMode.activate();
+
+    // Update UI button if it exists
+    updateModeButton();
+
+    console.log(`Switched to graphics mode: ${currentMode.name}`);
+    return true;
+  }
+
+  function cycleMode() {
+    const modeNames = Object.keys(modes);
+    const currentIndex = modeNames.indexOf(currentModeName);
+    const nextIndex = (currentIndex + 1) % modeNames.length;
+    setMode(modeNames[nextIndex]);
+  }
+
+  function updateModeButton() {
+    const btn = document.getElementById("graphics-mode-btn");
+    if (btn && currentMode) {
+      btn.textContent = `Mode: ${currentMode.name}`;
+    }
+  }
+
   async function init(canvasElement) {
     canvas = canvasElement;
     gl = canvas.getContext("webgl2", { alpha: false, antialias: true });
@@ -195,27 +251,16 @@ const Renderer = (function () {
 
     particleBuffer = gl.createBuffer();
     triangleBuffer = gl.createBuffer();
+    circleBuffer = gl.createBuffer();
 
-    await Promise.all([
-      loadTexture("blob1", "assets/blob1.png"),
-      loadTexture("blob2", "assets/blob2.png"),
-      loadTexture("food", "assets/food.png"),
-      loadTexture("trophy", "assets/trophy.png"),
-      loadTexture("player_mats", "assets/players/mats.png"),
-      loadTexture("player_krille", "assets/players/krille.png"),
-      loadTexture("player_tommi", "assets/players/tommi.png"),
-      loadTexture("player_per", "assets/players/per.png"),
-      loadTexture("player_linda", "assets/players/linda.png"),
-      ModelRenderer.loadModel("linda", "assets/linda.glb"),
-    ]);
+    // Register available graphics modes
+    registerMode(ImageBasedFunnyMode);
+    registerMode(BasicShapesColorfulMode);
 
-    for (let i = 0; i < 20; i++) {
-      foodRotations.push({
-        angle: Math.random() * Math.PI * 2,
-        speed: 0.5 + Math.random() * 1.5,
-      });
-    }
+    // Initialize and activate default mode
+    await setMode(currentModeName);
 
+    // Load audio
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     async function loadAudioBuffer(url) {
       const response = await fetch(url);
@@ -325,6 +370,118 @@ const Renderer = (function () {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
+  function drawCircle(x, y, radius, color, segments = 32) {
+    // Draw a filled circle at (x, y)
+    // color is [r, g, b, a] with values 0-1
+    const vertices = new Float32Array((segments + 2) * 2);
+
+    // Center vertex
+    vertices[0] = x;
+    vertices[1] = y;
+
+    // Circle vertices
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2;
+      vertices[(i + 1) * 2] = x + Math.cos(angle) * radius;
+      vertices[(i + 1) * 2 + 1] = y + Math.sin(angle) * radius;
+    }
+
+    gl.useProgram(solidProgram);
+    gl.uniform2f(gl.getUniformLocation(solidProgram, "u_resolution"), viewportWidth, viewportHeight);
+    gl.uniform4fv(gl.getUniformLocation(solidProgram, "u_color"), color);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, circleBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+
+    const posLoc = gl.getAttribLocation(solidProgram, "a_position");
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, segments + 2);
+  }
+
+  function drawCircleOutline(x, y, radius, color, lineWidth = 2, segments = 32) {
+    // Draw a circle outline using line strip
+    // We draw multiple circles at slightly different radii to achieve line width
+    const innerRadius = radius - lineWidth / 2;
+    const outerRadius = radius + lineWidth / 2;
+
+    // Create a ring (quad strip)
+    const vertices = new Float32Array((segments + 1) * 4);
+
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+
+      // Inner vertex
+      vertices[i * 4] = x + cos * innerRadius;
+      vertices[i * 4 + 1] = y + sin * innerRadius;
+      // Outer vertex
+      vertices[i * 4 + 2] = x + cos * outerRadius;
+      vertices[i * 4 + 3] = y + sin * outerRadius;
+    }
+
+    gl.useProgram(solidProgram);
+    gl.uniform2f(gl.getUniformLocation(solidProgram, "u_resolution"), viewportWidth, viewportHeight);
+    gl.uniform4fv(gl.getUniformLocation(solidProgram, "u_color"), color);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, circleBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+
+    const posLoc = gl.getAttribLocation(solidProgram, "a_position");
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, (segments + 1) * 2);
+  }
+
+  function drawArrow(x, y, size, angle, color) {
+    // Draw an arrow pointing in the direction of angle
+    // Arrow shape: triangle with a notch at the back
+    const halfSize = size / 2;
+
+    // Define arrow shape pointing right (angle 0)
+    const arrowPoints = [
+      [halfSize, 0],           // Tip
+      [-halfSize * 0.6, -halfSize * 0.5], // Top back
+      [-halfSize * 0.2, 0],    // Notch
+      [-halfSize * 0.6, halfSize * 0.5],  // Bottom back
+    ];
+
+    // Rotate and translate points
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+
+    const rotatedPoints = arrowPoints.map(([px, py]) => [
+      x + px * cos - py * sin,
+      y + px * sin + py * cos,
+    ]);
+
+    // Create triangles: tip-topback-notch, tip-notch-bottomback
+    const vertices = new Float32Array([
+      rotatedPoints[0][0], rotatedPoints[0][1], // Tip
+      rotatedPoints[1][0], rotatedPoints[1][1], // Top back
+      rotatedPoints[2][0], rotatedPoints[2][1], // Notch
+      rotatedPoints[0][0], rotatedPoints[0][1], // Tip
+      rotatedPoints[2][0], rotatedPoints[2][1], // Notch
+      rotatedPoints[3][0], rotatedPoints[3][1], // Bottom back
+    ]);
+
+    gl.useProgram(solidProgram);
+    gl.uniform2f(gl.getUniformLocation(solidProgram, "u_resolution"), viewportWidth, viewportHeight);
+    gl.uniform4fv(gl.getUniformLocation(solidProgram, "u_color"), color);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, triangleBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+
+    const posLoc = gl.getAttribLocation(solidProgram, "a_position");
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+
   function triggerBounce(blobId) {
     while (blobAnimations.length <= blobId) {
       blobAnimations.push({ scale: 1.0, bounceTime: 0, spinAngle: 0, spinTime: 0 });
@@ -355,12 +512,13 @@ const Renderer = (function () {
   }
 
   function spawnExplosion(x, y, blobId) {
-    const colorSets = [
-      [[50, 120, 220], [150, 200, 255], [255, 255, 255]],
-      [[220, 50, 50], [255, 150, 150], [255, 255, 255]],
-      [[50, 220, 100], [150, 255, 180], [255, 255, 255]],
-    ];
-    const colors = colorSets[Math.min(blobId, colorSets.length - 1)];
+    const colors = currentMode
+      ? currentMode.getExplosionColors(blobId)
+      : [
+          [50, 120, 220],
+          [150, 200, 255],
+          [255, 255, 255],
+        ];
     const count = Math.min(80, MAX_PARTICLES - particles.length);
 
     for (let i = 0; i < count; i++) {
@@ -405,8 +563,9 @@ const Renderer = (function () {
       }
     }
 
-    for (const rot of foodRotations) {
-      rot.angle += rot.speed * dt;
+    // Update mode-specific animations
+    if (currentMode && currentMode.update) {
+      currentMode.update(dt);
     }
 
     // Update arrow bob animation
@@ -473,7 +632,7 @@ const Renderer = (function () {
   }
 
   function render(state, playerBlobIndex = -1) {
-    if (!state) return;
+    if (!state || !currentMode) return;
 
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -506,54 +665,16 @@ const Renderer = (function () {
       cameraOffsetY = 0;
     }
 
-    // Draw foods
-    for (let i = 0; i < state.foods.length; i++) {
-      const food = state.foods[i];
-      const screen = worldToScreen(food.x, food.y);
-      const rotation = foodRotations[i % foodRotations.length].angle;
-      const size = gameScale * 3;
-      drawSprite("food", screen.x, screen.y, size, rotation);
+    // Ensure blob animations array is sized correctly
+    while (blobAnimations.length < state.blobs.length) {
+      blobAnimations.push({ scale: 1.0, bounceTime: 0, spinAngle: 0, spinTime: 0 });
     }
 
-    // Draw blobs
-    for (let i = 0; i < state.blobs.length; i++) {
-      const blob = state.blobs[i];
-      if (!blob.alive) continue;
+    // Delegate rendering to current mode
+    currentMode.renderFood(state.foods, publicAPI);
+    currentMode.renderBlobs(state.blobs, blobAnimations, agentRadius, initialMass, publicAPI);
 
-      const screen = worldToScreen(blob.x, blob.y);
-
-      while (blobAnimations.length <= i) {
-        blobAnimations.push({ scale: 1.0, bounceTime: 0, spinAngle: 0, spinTime: 0 });
-      }
-
-      const baseSize = agentRadius * gameScale * 2;
-      const massScale = blob.mass / initialMass;
-      const animScale = blobAnimations[i].scale;
-      const size = Math.max(10, baseSize * massScale * animScale);
-
-      if (blob.character === "linda" && ModelRenderer.isLoaded("linda")) {
-        const modelScale = size * 1.0;
-        const spinAngle = blobAnimations[i].spinAngle || 0;
-        ModelRenderer.render("linda", screen.x, screen.y, modelScale, blob.angle, viewportWidth, viewportHeight, spinAngle);
-      } else {
-        let texName;
-        if (blob.character) {
-          texName = `player_${blob.character}`;
-        } else {
-          texName = i % 2 === 0 ? "blob1" : "blob2";
-        }
-
-        let rotation = blob.angle;
-        const flipY = Math.abs(blob.angle) > Math.PI / 2;
-        if (flipY) {
-          rotation = Math.PI - rotation;
-        }
-
-        drawSprite(texName, screen.x, screen.y, size, rotation, flipY);
-      }
-    }
-
-    // Draw player indicator arrow
+    // Draw player indicator
     if (playerBlobIndex >= 0 && state.blobs[playerBlobIndex]?.alive) {
       const playerBlob = state.blobs[playerBlobIndex];
       const screen = worldToScreen(playerBlob.x, playerBlob.y);
@@ -563,19 +684,18 @@ const Renderer = (function () {
       const massScale = playerBlob.mass / initialMass;
       const blobSize = baseSize * massScale;
 
-      // Arrow position: above the blob with bobbing animation
+      // Bob animation offset
       const bobOffset = Math.sin(arrowBobTime) * 5;
-      const arrowY = screen.y - blobSize / 2 - 20 + bobOffset;
-      const arrowSize = 20;
 
-      // Green color: #32dc64 = rgb(50, 220, 100)
-      drawTriangle(screen.x, arrowY, arrowSize, [50/255, 220/255, 100/255, 1.0]);
+      currentMode.renderPlayerIndicator(playerBlob, blobSize, screen, bobOffset, publicAPI);
     }
 
-    renderParticles();
+    // Render particles
+    currentMode.renderParticles(particles, publicAPI);
   }
 
-  return {
+  // Public API exposed to modes
+  const publicAPI = {
     init,
     resize,
     render,
@@ -587,5 +707,27 @@ const Renderer = (function () {
     playEatSound,
     spawnExplosion,
     worldToScreen,
+
+    // Drawing primitives for modes
+    drawSprite,
+    drawTriangle,
+    drawCircle,
+    drawCircleOutline,
+    drawArrow,
+    renderParticles,
+    loadTexture,
+
+    // Getters for mode access
+    getGameScale: () => gameScale,
+    getViewport: () => ({ width: viewportWidth, height: viewportHeight }),
+    getMapSize: () => mapSize,
+
+    // Mode management
+    setMode,
+    cycleMode,
+    getCurrentMode: () => currentModeName,
+    getAvailableModes: () => Object.keys(modes),
   };
+
+  return publicAPI;
 })();
