@@ -34,8 +34,9 @@ const BasicShapesColorfulMode = {
 
   // Trail tracking
   trails: new Map(), // blobId -> array of {x, y, angle, size}
-  trailLength: 15, // Number of trail segments
-  trailSpacing: 8, // Minimum distance between trail points
+  trailLength: 100, // Number of trail segments
+  trailSpacing: 5, // Minimum distance between trail points
+  trailOpacity: 0.4, // Global trail opacity
 
   async init(renderer) {
     // Clear trails on init
@@ -58,15 +59,12 @@ const BasicShapesColorfulMode = {
 
   renderFood(foods, renderer) {
     const gameScale = renderer.getGameScale();
+    const white = [1, 1, 1, 1];
     for (let i = 0; i < foods.length; i++) {
       const food = foods[i];
       const screen = renderer.worldToScreen(food.x, food.y);
       const radius = gameScale * 0.8;
-      const colorIndex = i % this.foodColors.length;
-      const color = this.foodColors[colorIndex].map((c, idx) =>
-        idx < 3 ? c / 255 : c
-      );
-      renderer.drawCircle(screen.x, screen.y, radius, color);
+      renderer.drawCircle(screen.x, screen.y, radius, white);
     }
   },
 
@@ -85,8 +83,10 @@ const BasicShapesColorfulMode = {
 
       const baseSize = agentRadius * gameScale * 2;
       const massScale = blob.mass / initialMass;
+      // Half the size increase when growing, but full shrink when losing mass
+      const visualMassScale = massScale > 1 ? 1 + (massScale - 1) * 0.5 : massScale;
       const animScale = animations[i]?.scale || 1.0;
-      const size = Math.max(10, baseSize * massScale * animScale);
+      const size = Math.max(10, baseSize * visualMassScale * animScale);
 
       const colorIndex = i % this.blobColors.length;
       const color = this.blobColors[colorIndex].map((c, idx) =>
@@ -116,19 +116,29 @@ const BasicShapesColorfulMode = {
         }
       }
 
-      // Draw trail as continuous tapered line
-      for (let t = trail.length - 1; t >= 1; t--) {
-        const p1 = trail[t];
-        const p2 = trail[t - 1];
-        const progress = t / this.trailLength; // 1 = oldest, 0 = newest
-        const nextProgress = (t - 1) / this.trailLength;
+      // Build trail points array for continuous rendering
+      // Offset each point to start at back of triangle (back is at -size*0.25 from center)
+      // Triangle back width is size * 0.7
+      const backOffset = size * 0.25;
+      const backWidth = size * 0.7;
+      const trailPoints = [];
+      for (let t = trail.length - 1; t >= 0; t--) {
+        const p = trail[t];
+        const progress = t / this.trailLength;
+        const width = backWidth * (1 - progress); // Match back of triangle, taper to zero
+        // Offset point backward from center to back of triangle
+        const cos = Math.cos(p.angle);
+        const sin = Math.sin(p.angle);
+        trailPoints.push({
+          x: p.x - cos * backOffset,
+          y: p.y - sin * backOffset,
+          width
+        });
+      }
 
-        const opacity = 0.5 * (1 - progress);
-        const width1 = size * 0.4 * (1 - progress);
-        const width2 = size * 0.4 * (1 - nextProgress);
-
-        const trailColor = [color[0], color[1], color[2], opacity];
-        renderer.drawTaperedLine(p1.x, p1.y, p2.x, p2.y, width1, width2, trailColor);
+      // Draw trail as single continuous triangle strip
+      if (trailPoints.length >= 2) {
+        renderer.drawTrail(trailPoints, color, this.trailOpacity);
       }
 
       // Draw main arrow on top

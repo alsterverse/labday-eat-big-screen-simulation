@@ -437,16 +437,15 @@ const Renderer = (function () {
   }
 
   function drawArrow(x, y, size, angle, color) {
-    // Draw an arrow pointing in the direction of angle
-    // Arrow shape: triangle with a notch at the back
+    // Draw a pointy triangle with flat back pointing in direction of angle
     const halfSize = size / 2;
 
-    // Define arrow shape pointing right (angle 0)
+    // Define triangle shape pointing right (angle 0)
+    // Pointier: tip extends further (0.8 * size), back is narrower (0.7 * halfSize each side)
     const arrowPoints = [
-      [halfSize, 0],           // Tip
-      [-halfSize * 0.6, -halfSize * 0.5], // Top back
-      [-halfSize * 0.2, 0],    // Notch
-      [-halfSize * 0.6, halfSize * 0.5],  // Bottom back
+      [size * 0.8, 0],                    // Tip (extended forward)
+      [-halfSize * 0.5, -halfSize * 0.7], // Top back (narrower)
+      [-halfSize * 0.5, halfSize * 0.7],  // Bottom back (narrower)
     ];
 
     // Rotate and translate points
@@ -458,14 +457,11 @@ const Renderer = (function () {
       y + px * sin + py * cos,
     ]);
 
-    // Create triangles: tip-topback-notch, tip-notch-bottomback
+    // Single triangle
     const vertices = new Float32Array([
       rotatedPoints[0][0], rotatedPoints[0][1], // Tip
       rotatedPoints[1][0], rotatedPoints[1][1], // Top back
-      rotatedPoints[2][0], rotatedPoints[2][1], // Notch
-      rotatedPoints[0][0], rotatedPoints[0][1], // Tip
-      rotatedPoints[2][0], rotatedPoints[2][1], // Notch
-      rotatedPoints[3][0], rotatedPoints[3][1], // Bottom back
+      rotatedPoints[2][0], rotatedPoints[2][1], // Bottom back
     ]);
 
     gl.useProgram(solidProgram);
@@ -479,7 +475,7 @@ const Renderer = (function () {
     gl.enableVertexAttribArray(posLoc);
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
 
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
   function drawTaperedLine(x1, y1, x2, y2, width1, width2, color) {
@@ -516,6 +512,62 @@ const Renderer = (function () {
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+
+  function drawTrail(points, color, globalOpacity = 0.4) {
+    // Draw a continuous tapered trail as a single triangle strip
+    // points: array of {x, y, width}
+    if (points.length < 2) return;
+
+    const vertices = [];
+
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+
+      // Calculate direction for perpendicular
+      let dx, dy;
+      if (i === 0) {
+        dx = points[1].x - p.x;
+        dy = points[1].y - p.y;
+      } else if (i === points.length - 1) {
+        dx = p.x - points[i - 1].x;
+        dy = p.y - points[i - 1].y;
+      } else {
+        // Average direction from neighbors for smooth corners
+        dx = points[i + 1].x - points[i - 1].x;
+        dy = points[i + 1].y - points[i - 1].y;
+      }
+
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len < 0.001) continue;
+
+      // Perpendicular unit vector
+      const px = -dy / len;
+      const py = dx / len;
+
+      const halfW = p.width / 2;
+
+      // Add two vertices (left and right of center line)
+      vertices.push(p.x + px * halfW, p.y + py * halfW);
+      vertices.push(p.x - px * halfW, p.y - py * halfW);
+    }
+
+    if (vertices.length < 4) return;
+
+    const finalColor = [color[0], color[1], color[2], color[3] * globalOpacity];
+
+    gl.useProgram(solidProgram);
+    gl.uniform2f(gl.getUniformLocation(solidProgram, "u_resolution"), viewportWidth, viewportHeight);
+    gl.uniform4fv(gl.getUniformLocation(solidProgram, "u_color"), finalColor);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, triangleBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW);
+
+    const posLoc = gl.getAttribLocation(solidProgram, "a_position");
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertices.length / 2);
   }
 
   function triggerBounce(blobId) {
@@ -751,6 +803,7 @@ const Renderer = (function () {
     drawCircleOutline,
     drawArrow,
     drawTaperedLine,
+    drawTrail,
     renderParticles,
     loadTexture,
 
